@@ -54,7 +54,7 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
         self.window.focus_view(search_view)
 
 
-class AstGrepRunner:
+class AstGrepCli:
     def search(self, search_query:str, *, paths: list[str] | None = None, on_match: Callable[[Match], None] | None =None,
                on_done: Callable[[dict[str, list[Match]]], None] | None =None) -> None:
         [cwd] = sublime.active_window().folders()
@@ -160,7 +160,7 @@ class AstGrepRunner:
         self.search(search_query, paths=[file_name], on_done=on_done)
 
 
-class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstGrepRunner):
+class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstGrepCli):
     def run(self) -> None:
         search_view = next((view for view in self.window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-search-view'), None)
         if not search_view:
@@ -220,11 +220,16 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
             self.result_view.run_command('toggle_inline_diff')
             selection.clear()
             self.result_view.set_viewport_position(0)
+            if self.result_view:
+                # when navigating find next/preview result if a new view needs to be open
+                # to this trick to force the new view to be open at group 0
+                self.window.focus_group(0)
+                self.window.focus_view(self.result_view)
 
         self.replace(search_query, replace_query, on_match=on_match, on_done=on_done)
 
 
-class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepRunner):
+class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepCli):
     def run(self) -> None:
         search_view = RightPane.get_search_view(self.window)
         if not search_view:
@@ -271,6 +276,8 @@ class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepRunner):
 
         def on_done(matches: dict[str, list[Match]]) -> None:
             if self.result_view:
+                # when navigating find next/preview result if a new view needs to be open
+                # to this trick to force the new view to be open at group 0
                 self.window.focus_group(0)
                 self.window.focus_view(self.result_view)
 
@@ -278,7 +285,7 @@ class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepRunner):
         self.search(search_query, on_match=on_match, on_done=on_done)
 
 
-class AstGrepSearchHiglightListener(sublime_plugin.ViewEventListener, AstGrepRunner):
+class AstGrepSearchHiglightListener(sublime_plugin.ViewEventListener, AstGrepCli):
     @classmethod
     def is_applicable(cls, settings: sublime.Settings) -> bool:
         return settings.get('lsp-ast-grep.view.id') == 'ast-grep-search-view'
@@ -290,7 +297,7 @@ class AstGrepSearchHiglightListener(sublime_plugin.ViewEventListener, AstGrepRun
         debounced(lambda: self.higlight_matches(self.view), 300, lambda: self.view.is_valid() and change_count == self.view.change_count())
 
 
-class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstGrepRunner):
+class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstGrepCli):
     @classmethod
     def is_applicable(cls, settings: sublime.Settings) -> bool:
         return settings.get('lsp-ast-grep.view.id') in ['ast-grep-search-view', 'ast-grep-replace-view']
@@ -324,7 +331,7 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
         sublime.set_timeout(layout)
 
 
-class SearchOpenListener(sublime_plugin.EventListener, AstGrepRunner):
+class AstGrepSearchOpenListener(sublime_plugin.EventListener, AstGrepCli):
     @classmethod
     def is_applicable(cls, settings: sublime.Settings) -> bool:
         # todo

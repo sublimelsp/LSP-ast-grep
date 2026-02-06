@@ -1,0 +1,7 @@
+{
+  "name": "sublime-sls",
+  "version": "1.0.0",
+  "dependencies": {
+    "@ast-grep/cli": "^0.40.0"
+  }
+}

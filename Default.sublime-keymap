@@ -1,0 +1,13 @@
+[
+    {
+        "keys": ["primary+enter"],
+        "command": "lsp_ast_grep_search_command",
+        "context": [{"key": "ast-grep.view", "operator": "equal", "operand": "ast-grep-search-view" } ]
+    },
+    {
+        "keys": ["primary+enter" ],
+        "command": "lsp_ast_grep_search_and_replace_command",
+        "context": [{"key": "ast-grep.view", "operator": "equal", "operand": "ast-grep-replace-view" }
+        ]
+    }
+]

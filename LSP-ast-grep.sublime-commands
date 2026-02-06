@@ -1,0 +1,14 @@
+[
+    {
+        "caption": "Preferences: LSP-ast-grep Settings",
+        "command": "edit_settings",
+        "args": {
+            "base_file": "${packages}/LSP-ast-grep/LSP-ast-grep.sublime-settings",
+            "default": "// Settings in here override those in \"LSP-ast-grep/LSP-ast-grep.sublime-settings\"\n\n{\n\t$0\n}\n",
+        },
+    },
+    {
+        "caption": "LSP-ast-grep: Search by Code",
+        "command": "lsp_ast_grep_open"
+    },
+]

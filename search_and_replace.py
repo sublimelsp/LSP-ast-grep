@@ -182,7 +182,7 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
         panel_name = 'ast-grep (search and replace)'
         self.result_view = self.window.find_output_panel(panel_name)
         if self.result_view:
-            self.result_view.run_command('lsp_clear_panel')
+            self.result_view.run_command('lsp_ast_grep_clear_panel')
         else:
             self.result_view = self.window.create_output_panel(panel_name)
             self.result_view.set_syntax_file('Packages/LSP/Syntaxes/References.sublime-syntax')
@@ -235,6 +235,8 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
                 self.window.focus_group(0)
                 self.window.focus_view(self.result_view)
 
+        self.result_view.set_read_only(False)
+        self.result_view.run_command('lsp_ast_grep_clear_panel')
         self.replace(search_query, replace_query, on_match=on_match, on_done=on_done)
 
 
@@ -254,7 +256,7 @@ class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepCli):
         panel_name = 'ast-grep (search)'
         self.result_view = self.window.find_output_panel(panel_name)
         if self.result_view:
-            self.result_view.run_command('lsp_clear_panel')
+            self.result_view.run_command('lsp_ast_grep_clear_panel')
         else:
             self.result_view = self.window.create_output_panel(panel_name)
             self.result_view.set_syntax_file('Packages/LSP/Syntaxes/References.sublime-syntax')
@@ -296,12 +298,14 @@ class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepCli):
 
         def on_done(matches: dict[str, list[Match]]) -> None:
             if self.result_view:
+                self.result_view.show(0)
                 # when navigating find next/preview result if a new view needs to be open
                 # to this trick to force the new view to be open at group 0
                 self.window.focus_group(0)
                 self.window.focus_view(self.result_view)
 
-        self.result_view.run_command('lsp_clear_panel')
+        self.result_view.set_read_only(False)
+        self.result_view.run_command('lsp_ast_grep_clear_panel')
         self.search(search_query, on_match=on_match, on_done=on_done)
 
 
@@ -412,3 +416,10 @@ class MetaVar(TypedDict):
     text: str
     range: RangeInfo
 
+
+class LspAstGrepClearPanelCommand(sublime_plugin.TextCommand):
+    """
+    A clear_panel command to clear the error panel.
+    """
+    def run(self, edit: sublime.Edit) -> None:
+        self.view.erase(edit, sublime.Region(0, self.view.size()))

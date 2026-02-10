@@ -199,6 +199,7 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
 
         self.last_file_name: str | None = None
 
+        line_from_last_match = ''
         old_reference = ''
         def on_match(match: Match) -> None:
             nonlocal old_reference
@@ -210,6 +211,13 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
                 self.last_file_name = match['file']
             old_reference += " {:>4}:{:<4} {}".format(match['range']['start']['line'] + 1, match['range']['start']['column'] + 1, re.sub(r'\s+', ' ', match['text'].replace('\n', ''))) + "\n\n"
             line = " {:>4}:{:<4} {}".format(match['range']['start']['line'] + 1, match['range']['start']['column'] + 1, match['replacement']) + "\n\n"
+            if line_from_last_match == line:
+                #  it is not useful to see same lines
+                # sgconfig.yml:
+                # 1:1    ruleDirs:
+                # 1:1    ruleDirs:
+                # 1:1    ruleDirs:
+                return
             self.result_view.run_command("append", {"characters": line, 'scroll_to_end': False})
             self.result_view.set_read_only(True)
             self.result_view.set_reference_document(old_reference)
@@ -261,8 +269,11 @@ class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepCli):
         self.window.run_command("show_panel", {"panel": f"output.{panel_name}"})
 
         self.last_file_name: str | None = None
+        line_from_last_match = ''
+
 
         def on_match(match: Match) -> None:
+            nonlocal line_from_last_match
             is_empty_view = self.result_view.size() > 0
             self.result_view.set_read_only(False)
             if self.last_file_name != match['file']:
@@ -270,6 +281,14 @@ class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepCli):
                 self.result_view.run_command("append", {"characters": maybe_new_line + match['file'] + ':\n'})
                 self.last_file_name = match['file']
             line = (" {:>4}:{:<4} {}".format(match['range']['start']['line'] + 1, match['range']['start']['column'] + 1, match['lines'].split('\n')[0].strip()))
+            if line_from_last_match == line:
+                #  it is not useful to see same lines
+                # sgconfig.yml:
+                # 1:1    ruleDirs:
+                # 1:1    ruleDirs:
+                # 1:1    ruleDirs:
+                return
+            line_from_last_match = line
             self.result_view.run_command("append", {"characters": line + "\n"})
             self.result_view.set_read_only(True)
 

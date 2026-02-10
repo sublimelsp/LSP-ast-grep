@@ -324,6 +324,11 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
         if search_view:
             sublime.set_timeout(lambda: search_view.close())
 
+        # clear higlight regions on pane close
+        for v in window.views():
+            for key in v.settings().get('ast-grep-var-key') or []:
+                v.erase_regions(key)
+
         def layout():
             window.set_layout({'cells': [[0, 0, 1, 1]], 'cols': [0.0, 1.0], 'rows': [0.0, 1.0]})
 

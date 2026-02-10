@@ -1,4 +1,5 @@
 from __future__ import annotations
+from functools import partial
 import threading
 from .plugin import LspAstGrep
 from LSP.plugin.core.types import debounced
@@ -79,7 +80,7 @@ class AstGrepCli:
                     matches.setdefault(match['file'], []).append(match)
             _ = process.wait()
             if on_done:
-                on_done(matches)
+                sublime.set_timeout(partial(on_done,matches), 100)
 
         thread = threading.Thread(target=run_search)
         thread.start()
@@ -105,7 +106,7 @@ class AstGrepCli:
                     matches.setdefault(match['file'], []).append(match)
             _ = process.wait()
             if on_done:
-                on_done(matches)
+                sublime.set_timeout(partial(on_done,matches), 100)
 
         thread = threading.Thread(target=run_replace)
         thread.start()
@@ -178,7 +179,7 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
         if not cwd:
             return
 
-        panel_name = 'ast-grep diff'
+        panel_name = 'ast-grep (search and replace)'
         self.result_view = self.window.find_output_panel(panel_name)
         if self.result_view:
             self.result_view.run_command('lsp_clear_panel')
@@ -221,13 +222,14 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
             self.result_view.run_command("append", {"characters": line, 'scroll_to_end': False})
             self.result_view.set_read_only(True)
             self.result_view.set_reference_document(old_reference)
-        def on_done(_):
+
+        def on_done(_: dict[str, list[Match]]) -> None:
             selection = self.result_view.sel()
             selection.add(sublime.Region(0, self.result_view.size()))
             self.result_view.run_command('toggle_inline_diff')
             selection.clear()
-            self.result_view.set_viewport_position(0)
             if self.result_view:
+                self.result_view.show(0, show_surrounds=False, keep_to_left=False, animate=False)
                 # when navigating find next/preview result if a new view needs to be open
                 # to this trick to force the new view to be open at group 0
                 self.window.focus_group(0)
@@ -249,7 +251,7 @@ class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepCli):
         if not cwd:
             return
 
-        panel_name = 'ast-grep find results'
+        panel_name = 'ast-grep (search)'
         self.result_view = self.window.find_output_panel(panel_name)
         if self.result_view:
             self.result_view.run_command('lsp_clear_panel')

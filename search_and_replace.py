@@ -72,7 +72,7 @@ class AstGrepCli:
             )
             matches: dict[str, list[Match]] = {}
             if process.stdout:
-                for line in iter(process.stdout.readline, b""):
+                for line in process.stdout:
                     match: Match = sublime.decode_value(line.decode('utf-8'))  # pyright: ignore[reportAssignmentType]
                     if on_match:
                         on_match(match)
@@ -98,7 +98,7 @@ class AstGrepCli:
                stderr=subprocess.PIPE)
             matches: dict[str, list[Match]] = {}
             if process.stdout:
-                for line in iter(process.stdout.readline, b""):
+                for line in process.stdout:
                     match: Match = sublime.decode_value(line.decode('utf-8'))  # pyright: ignore[reportAssignmentType]
                     if on_match:
                         on_match(match)
@@ -156,7 +156,6 @@ class AstGrepCli:
                 erase_keys.append(f'lsp-ast-grep.match-multi.{key}')
                 active_view.add_regions(f'lsp-ast-grep.match-multi.{key}', regions, f'region.bluish lsp-ast-grep.match-multi.{key}', flags=sublime.RegionFlags.DRAW_NO_FILL | sublime.RegionFlags.DRAW_STIPPLED_UNDERLINE| sublime.RegionFlags.DRAW_NO_OUTLINE )
             active_view.settings().set('ast-grep-var-key', erase_keys)
-
         self.search(search_query, paths=[file_name], on_done=on_done)
 
 

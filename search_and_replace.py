@@ -58,8 +58,13 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
 
 
 class AstGrepCli:
+    process: subprocess.Popen | None = None
+
     def search(self, search_query:str, *, paths: list[str] | None = None, on_match: Callable[[Match], None] | None =None,
                on_done: Callable[[dict[str, list[Match]]], None] | None =None) -> None:
+        if AstGrepCli.process:
+            AstGrepCli.process.kill()
+            AstGrepCli.process = None
         folders = sublime.active_window().folders()
         if not folders:
             return
@@ -74,6 +79,7 @@ class AstGrepCli:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             )
+            AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
             if process.stdout:
                 for line in process.stdout:
@@ -90,20 +96,27 @@ class AstGrepCli:
 
     def replace(self, search_query:str, replace_query: str, paths: list[str] | None = None,
                 on_match: Callable[[Match], None] | None =None, on_done: Callable[[dict[str, list[Match]]], None] | None =None) -> None:
+        if AstGrepCli.process:
+            AstGrepCli.process.kill()
+            AstGrepCli.process = None
         folders = sublime.active_window().folders()
         if not folders:
             return
         cwd = folders[0]
         search_paths = [*(paths or []), *folders]
+
         def run_replace():
             ast_cli = LspAstGrep.binary_path()
             process = subprocess.Popen([ast_cli, 'run', '--pattern', search_query,  '--rewrite',  replace_query, '--json=stream', *search_paths],
                cwd=cwd,
                stdout=subprocess.PIPE,
                stderr=subprocess.PIPE)
+            AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
             if process.stdout:
                 for line in process.stdout:
+                    if AstGrepCli.process != process:
+                        return
                     match: Match = sublime.decode_value(line.decode('utf-8'))  # pyright: ignore[reportAssignmentType]
                     if on_match:
                         on_match(match)
@@ -208,6 +221,7 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
         line_from_last_match = ''
         old_reference = ''
         def on_match(match: Match) -> None:
+            nonlocal line_from_last_match
             nonlocal old_reference
             self.result_view.set_read_only(False)
             if self.last_file_name != match['file']:
@@ -216,7 +230,7 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
                 self.result_view.run_command("append", {"characters": new_text, 'scroll_to_end': False})
                 self.last_file_name = match['file']
             old_reference += " {:>4}:{:<4} {}".format(match['range']['start']['line'] + 1, match['range']['start']['column'] + 1, re.sub(r'\s+', ' ', match['text'].replace('\n', ''))) + "\n\n"
-            line = " {:>4}:{:<4} {}".format(match['range']['start']['line'] + 1, match['range']['start']['column'] + 1, match['replacement']) + "\n\n"
+            line =           " {:>4}:{:<4} {}".format(match['range']['start']['line'] + 1, match['range']['start']['column'] + 1, match['replacement']) + "\n\n"
             if line_from_last_match == line:
                 #  it is not useful to see same lines
                 # sgconfig.yml:
@@ -224,17 +238,20 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
                 # 1:1    ruleDirs:
                 # 1:1    ruleDirs:
                 return
+            line_from_last_match = line
             self.result_view.run_command("append", {"characters": line, 'scroll_to_end': False})
             self.result_view.set_read_only(True)
             self.result_view.set_reference_document(old_reference)
 
         def on_done(_: dict[str, list[Match]]) -> None:
-            selection = self.result_view.sel()
-            selection.add(sublime.Region(0, self.result_view.size()))
-            self.result_view.run_command('toggle_inline_diff')
-            selection.clear()
-            if self.result_view:
-                self.result_view.show(0, show_surrounds=False, keep_to_left=False, animate=False)
+            def toggle_diff():
+                selection = self.result_view.sel()
+                selection.add(sublime.Region(0, self.result_view.size()))
+                self.result_view.run_command('toggle_inline_diff')
+                selection.clear()
+                if self.result_view:
+                    self.result_view.show(0, show_surrounds=False, keep_to_left=False, animate=False)
+            sublime.set_timeout(toggle_diff, 0)
 
 
         self.result_view.set_read_only(False)

@@ -381,6 +381,9 @@ class AstGrepSearchOpenListener(sublime_plugin.EventListener, AstGrepCli):
     def on_clone(self, view: sublime.View) -> None:
         self.higlight_matches(view)
 
+    def on_post_save(self, view: sublime.View) -> None:
+        self.higlight_matches(view)
+
 
 # https://ast-grep.github.io/guide/tools/json.html#match-object-type
 class Match(TypedDict):

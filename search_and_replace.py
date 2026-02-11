@@ -115,7 +115,7 @@ class AstGrepCli:
         thread = threading.Thread(target=run_replace)
         thread.start()
 
-    def higlight_matches(self, view: sublime.View) -> None:
+    def highlight_matches(self, view: sublime.View) -> None:
         window = view.window()
         if not window:
             return
@@ -315,7 +315,7 @@ class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepCli):
         self.search(search_query, on_match=on_match, on_done=on_done)
 
 
-class AstGrepSearchHiglightListener(sublime_plugin.ViewEventListener, AstGrepCli):
+class AstGrepSearchHighlightListener(sublime_plugin.ViewEventListener, AstGrepCli):
     @classmethod
     def is_applicable(cls, settings: sublime.Settings) -> bool:
         return settings.get('lsp-ast-grep.view.id') == 'ast-grep-search-view'
@@ -324,7 +324,7 @@ class AstGrepSearchHiglightListener(sublime_plugin.ViewEventListener, AstGrepCli
         if self.view.is_dirty():
             return
         change_count = self.view.change_count()
-        debounced(lambda: self.higlight_matches(self.view), 300, lambda: self.view.is_valid() and change_count == self.view.change_count())
+        debounced(lambda: self.highlight_matches(self.view), 300, lambda: self.view.is_valid() and change_count == self.view.change_count())
 
 
 class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstGrepCli):
@@ -355,7 +355,7 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
         if search_view:
             sublime.set_timeout(lambda: search_view.close())
 
-        # clear higlight regions on pane close
+        # clear highlight regions on pane close
         for v in window.views():
             for key in v.settings().get('ast-grep-var-key') or []:
                 v.erase_regions(key)
@@ -373,16 +373,16 @@ class AstGrepSearchOpenListener(sublime_plugin.EventListener, AstGrepCli):
         return RightPane.active
 
     def on_activated(self, view: sublime.View) -> None:
-        self.higlight_matches(view)
+        self.highlight_matches(view)
 
     def on_load(self, view: sublime.View) -> None:
-        self.higlight_matches(view)
+        self.highlight_matches(view)
 
     def on_clone(self, view: sublime.View) -> None:
-        self.higlight_matches(view)
+        self.highlight_matches(view)
 
     def on_post_save(self, view: sublime.View) -> None:
-        self.higlight_matches(view)
+        self.highlight_matches(view)
 
 
 # https://ast-grep.github.io/guide/tools/json.html#match-object-type

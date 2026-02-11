@@ -11,6 +11,7 @@ import subprocess
 
 
 class RightPane:
+    active = False
     @staticmethod
     def get_search_view(window: sublime.Window) -> sublime.View | None:
         return next((view for view in window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-search-view'), None)
@@ -53,18 +54,20 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
         self.window.set_view_index(replace_view, 2, 0)
 
         self.window.focus_view(search_view)
+        RightPane.active = True
 
 
 class AstGrepCli:
     def search(self, search_query:str, *, paths: list[str] | None = None, on_match: Callable[[Match], None] | None =None,
                on_done: Callable[[dict[str, list[Match]]], None] | None =None) -> None:
-        [cwd] = sublime.active_window().folders()
-        if not cwd:
+        folders = sublime.active_window().folders()
+        if not folders:
             return
-
+        cwd = folders[0]
+        search_paths = [*(paths or []), *folders]
         def run_search():
             ast_cli = LspAstGrep.binary_path()
-            cmd = [ast_cli, 'run', '--pattern', search_query, '--json=stream', *(paths or [])]
+            cmd = [ast_cli, 'run', '--pattern', search_query, '--json=stream', *search_paths]
             process = subprocess.Popen(
                 cmd,
                 cwd=cwd,
@@ -87,13 +90,14 @@ class AstGrepCli:
 
     def replace(self, search_query:str, replace_query: str, paths: list[str] | None = None,
                 on_match: Callable[[Match], None] | None =None, on_done: Callable[[dict[str, list[Match]]], None] | None =None) -> None:
-        [cwd] = sublime.active_window().folders()
-        if not cwd:
+        folders = sublime.active_window().folders()
+        if not folders:
             return
-        paths = paths or []
+        cwd = folders[0]
+        search_paths = [*(paths or []), *folders]
         def run_replace():
             ast_cli = LspAstGrep.binary_path()
-            process = subprocess.Popen([ast_cli, 'run', '--pattern', search_query,  '--rewrite',  replace_query, '--json=stream', *paths ],
+            process = subprocess.Popen([ast_cli, 'run', '--pattern', search_query,  '--rewrite',  replace_query, '--json=stream', *search_paths],
                cwd=cwd,
                stdout=subprocess.PIPE,
                stderr=subprocess.PIPE)
@@ -175,9 +179,10 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
         if not replace_query.strip():
             return
 
-        [cwd] = self.window.folders()
-        if not cwd:
+        folders = self.window.folders()
+        if not folders:
             return
+        cwd=folders[0]
 
         panel_name = 'ast-grep (search and replace)'
         self.result_view = self.window.find_output_panel(panel_name)
@@ -249,9 +254,10 @@ class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepCli):
         if not search_query.strip():
             return
 
-        [cwd] = self.window.folders()
-        if not cwd:
+        folders = self.window.folders()
+        if not folders:
             return
+        cwd = folders[0]
 
         panel_name = 'ast-grep (search)'
         self.result_view = self.window.find_output_panel(panel_name)
@@ -358,13 +364,13 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
             window.set_layout({'cells': [[0, 0, 1, 1]], 'cols': [0.0, 1.0], 'rows': [0.0, 1.0]})
 
         sublime.set_timeout(layout)
+        RightPane.active = False
 
 
 class AstGrepSearchOpenListener(sublime_plugin.EventListener, AstGrepCli):
     @classmethod
     def is_applicable(cls, settings: sublime.Settings) -> bool:
-        # todo
-        return True
+        return RightPane.active
 
     def on_activated(self, view: sublime.View) -> None:
         self.higlight_matches(view)

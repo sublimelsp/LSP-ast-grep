@@ -235,10 +235,7 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
             selection.clear()
             if self.result_view:
                 self.result_view.show(0, show_surrounds=False, keep_to_left=False, animate=False)
-                # when navigating find next/preview result if a new view needs to be open
-                # to this trick to force the new view to be open at group 0
-                self.window.focus_group(0)
-                self.window.focus_view(self.result_view)
+
 
         self.result_view.set_read_only(False)
         self.result_view.run_command('lsp_ast_grep_clear_panel')
@@ -305,10 +302,6 @@ class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepCli):
         def on_done(matches: dict[str, list[Match]]) -> None:
             if self.result_view:
                 self.result_view.show(0)
-                # when navigating find next/preview result if a new view needs to be open
-                # to this trick to force the new view to be open at group 0
-                self.window.focus_group(0)
-                self.window.focus_view(self.result_view)
 
         self.result_view.set_read_only(False)
         self.result_view.run_command('lsp_ast_grep_clear_panel')
@@ -377,6 +370,9 @@ class AstGrepSearchOpenListener(sublime_plugin.EventListener, AstGrepCli):
 
     def on_load(self, view: sublime.View) -> None:
         self.highlight_matches(view)
+        window = view.window()
+        if window:
+            window.set_view_index(view, 0, -1)
 
     def on_clone(self, view: sublime.View) -> None:
         self.highlight_matches(view)

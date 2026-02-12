@@ -1,6 +1,9 @@
 from __future__ import annotations
 from functools import partial
 import threading
+
+from LSP.plugin import filename_to_uri
+from LSP.protocol import WorkspaceEdit
 from .plugin import LspAstGrep
 from LSP.plugin.core.types import debounced
 from typing import Callable, NotRequired, TypedDict
@@ -8,6 +11,40 @@ import re
 import sublime
 import sublime_plugin
 import subprocess
+
+
+BUTTONS_TEMPLATE = """
+<style>
+    html {{
+        background-color: transparent;
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+    }}
+    a {{
+        line-height: 1.6rem;
+        padding-left: 0.6rem;
+        padding-right: 0.6rem;
+        border-width: 1px;
+        border-style: solid;
+        border-color: #fff4;
+        border-radius: 4px;
+        color: #cccccc;
+        background-color: #3f3f3f;
+        text-decoration: none;
+    }}
+    html.light a {{
+        border-color: #000a;
+        color: white;
+        background-color: #636363;
+    }}
+    a.primary, html.light a.primary {{
+        background-color: color(var(--accent) min-contrast(white 6.0));
+    }}
+</style>
+<body id='lsp-buttons'>
+    <a href='{apply}' class='primary'>Apply</a>&nbsp;
+    <a href='{discard}'>Discard</a>
+</body>"""
 
 
 class RightPane:
@@ -218,12 +255,32 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
 
         self.last_file_name: str | None = None
 
+        self.phantom_set = sublime.PhantomSet(self.result_view, "lsp_ast_grep_accept_buttons")
         line_from_last_match = ''
         old_reference = ''
+        workspace_edit: WorkspaceEdit = {"changes": {}}
         def on_match(match: Match) -> None:
             nonlocal line_from_last_match
             nonlocal old_reference
+            nonlocal workspace_edit
+            if 'replacement' not in match:
+                print('LSP-ast-grep: replacement key is missing.')
+                return
             self.result_view.set_read_only(False)
+            if not self.result_view.size():
+                # add one extra new line, when the view is clear for the phantom button
+                old_reference = '\n'
+                self.result_view.run_command("append", {"characters": '\n', 'scroll_to_end': False})
+
+
+            uri = filename_to_uri(match['file'])
+            workspace_edit['changes'].setdefault(uri, []).append({
+                'range': {
+                    'start': {'line': match['range']['start']['line'], 'character': match['range']['start']['column']},
+                    'end': {'line': match['range']['end']['line'], 'character': match['range']['end']['column']}
+                },
+                'newText': match['replacement']
+            })
             if self.last_file_name != match['file']:
                 new_text = match['file'] + ':\n'
                 old_reference += new_text
@@ -244,6 +301,8 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
             self.result_view.set_reference_document(old_reference)
 
         def on_done(_: dict[str, list[Match]]) -> None:
+            nonlocal workspace_edit
+            nonlocal old_reference
             def toggle_diff():
                 selection = self.result_view.sel()
                 selection.add(sublime.Region(0, self.result_view.size()))
@@ -252,6 +311,31 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
                 if self.result_view:
                     self.result_view.show(0, show_surrounds=False, keep_to_left=False, animate=False)
             sublime.set_timeout(toggle_diff, 0)
+            changes = workspace_edit['changes']
+            file_count = len(changes)
+            total_changes = sum(len(value[0]) for value in changes.values())
+            characters = f"Apply {total_changes} changes across {file_count} files?"
+            old_reference = characters + '\n' + old_reference
+            self.result_view.set_reference_document(old_reference)
+            self.result_view.run_command('lsp_ast_grep_insert', {
+                "point": 0,
+                "characters": characters
+            })
+            buttons_html = BUTTONS_TEMPLATE.format(
+                apply=sublime.command_url('chain', {
+                    'commands': [
+                        ['hide_panel', {}],
+                    ]
+                }),
+                discard=sublime.command_url('chain', {
+                    'commands': [
+                        ['hide_panel', {}],
+                    ]
+                })
+            )
+            self.phantom_set.update([
+                sublime.Phantom(sublime.Region(-1, -1), buttons_html, sublime.PhantomLayout.BLOCK)
+            ])
 
 
         self.result_view.set_read_only(False)
@@ -445,3 +529,11 @@ class LspAstGrepClearPanelCommand(sublime_plugin.TextCommand):
     """
     def run(self, edit: sublime.Edit) -> None:
         self.view.erase(edit, sublime.Region(0, self.view.size()))
+
+
+class LspAstGrepInsertCommand(sublime_plugin.TextCommand):
+    def run(self, edit, point=0, characters=""):
+        # self.view.insert(edit, point, string)
+        self.view.set_read_only(False)
+        self.view.insert(edit, point, characters)
+        self.view.set_read_only(True)

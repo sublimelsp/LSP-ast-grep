@@ -201,15 +201,15 @@ class AstGrepCli:
                         end_point = active_view.text_point(meta_var['range']['end']['line'], meta_var['range']['end']['column'])
                         multi_regions.setdefault(var_name, []).append(sublime.Region(start_point, end_point))
             erase_keys = ['lsp-ast-grep.match-line']
-            active_view.add_regions('lsp-ast-grep.match-line', match_regions, 'region.bluish', flags=sublime.RegionFlags.DRAW_NO_FILL)
+            active_view.add_regions('lsp-ast-grep.match-line', match_regions, 'region.bluish', flags=sublime.RegionFlags.DRAW_NO_FILL | sublime.RegionFlags.NO_UNDO)
             for key in single_regions:
                 regions = single_regions[key]
                 erase_keys.append(f'lsp-ast-grep.match-single.{key}')
-                active_view.add_regions(f'lsp-ast-grep.match-single.{key}', regions, f'region.bluish lsp-ast-grep.match-single.{key}', flags=sublime.RegionFlags.DRAW_NO_FILL | sublime.RegionFlags.DRAW_STIPPLED_UNDERLINE| sublime.RegionFlags.DRAW_NO_OUTLINE )
+                active_view.add_regions(f'lsp-ast-grep.match-single.{key}', regions, f'region.bluish lsp-ast-grep.match-single.{key}', flags=sublime.RegionFlags.DRAW_NO_FILL | sublime.RegionFlags.DRAW_STIPPLED_UNDERLINE| sublime.RegionFlags.DRAW_NO_OUTLINE | sublime.RegionFlags.NO_UNDO )
             for key in multi_regions:
                 regions = multi_regions[key]
                 erase_keys.append(f'lsp-ast-grep.match-multi.{key}')
-                active_view.add_regions(f'lsp-ast-grep.match-multi.{key}', regions, f'region.bluish lsp-ast-grep.match-multi.{key}', flags=sublime.RegionFlags.DRAW_NO_FILL | sublime.RegionFlags.DRAW_STIPPLED_UNDERLINE| sublime.RegionFlags.DRAW_NO_OUTLINE )
+                active_view.add_regions(f'lsp-ast-grep.match-multi.{key}', regions, f'region.bluish lsp-ast-grep.match-multi.{key}', flags=sublime.RegionFlags.DRAW_NO_FILL | sublime.RegionFlags.DRAW_STIPPLED_UNDERLINE| sublime.RegionFlags.DRAW_NO_OUTLINE | sublime.RegionFlags.NO_UNDO )
             active_view.settings().set('ast-grep-var-key', erase_keys)
         self.search(search_query, paths=[file_name], on_done=on_done)
 
@@ -290,6 +290,7 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
             self.result_view.run_command("append", {"characters": line, 'scroll_to_end': False})
             self.result_view.set_read_only(True)
             self.result_view.set_reference_document(old_reference)
+            self.result_view.clear_undo_stack()
 
         def on_done(matches: dict[str, list[Match]]) -> None:
             nonlocal workspace_edit
@@ -379,6 +380,7 @@ class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepCli):
             line = (" {:>4}:{:<4} {}".format(match['range']['start']['line'] + 1, match['range']['start']['column'] + 1, match['lines'].split('\n')[0].strip()))
             self.result_view.run_command("append", {"characters": line + "\n"})
             self.result_view.set_read_only(True)
+            self.result_view.clear_undo_stack()
 
         def on_done(matches: dict[str, list[Match]]) -> None:
             if self.result_view:

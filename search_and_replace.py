@@ -388,7 +388,7 @@ class AstGrepSearchOpenListener(sublime_plugin.EventListener, AstGrepCli):
     def on_load(self, view: sublime.View) -> None:
         self.highlight_matches(view)
         window = view.window()
-        if window:
+        if window and window.active_group() != 0:
             window.set_view_index(view, 0, -1)
 
     def on_clone(self, view: sublime.View) -> None:

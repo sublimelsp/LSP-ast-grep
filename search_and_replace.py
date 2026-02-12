@@ -18,7 +18,7 @@ BUTTONS_TEMPLATE = """
     html {{
         background-color: transparent;
         margin-top: 1.5rem;
-        margin-bottom: 0.5rem;
+        margin-bottom: 1rem;
     }}
     a {{
         line-height: 1.6rem;

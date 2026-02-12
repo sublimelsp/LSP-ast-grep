@@ -1,6 +1,5 @@
 from __future__ import annotations
 from pathlib import Path
-import re
 from LSP.plugin import ClientConfig, WorkspaceFolder
 from lsp_utils import NpmClientHandler
 import os

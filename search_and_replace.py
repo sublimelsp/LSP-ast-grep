@@ -291,7 +291,7 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
             self.result_view.set_read_only(True)
             self.result_view.set_reference_document(old_reference)
 
-        def on_done(_: dict[str, list[Match]]) -> None:
+        def on_done(matches: dict[str, list[Match]]) -> None:
             nonlocal workspace_edit
             nonlocal old_reference
             def toggle_diff():
@@ -302,16 +302,15 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
                 if self.result_view:
                     self.result_view.show(0, show_surrounds=False, keep_to_left=False, animate=False)
             sublime.set_timeout(toggle_diff, 0)
-            changes = workspace_edit['changes']
-            file_count = len(changes)
-            total_changes = sum(len(value[0]) for value in changes.values())
+            file_count = len(matches)
+            total_changes = sum(len(value[0]) for value in matches.values())
             characters = f"Apply {total_changes} changes across {file_count} files?"
             old_reference = characters + '\n' + old_reference
-            self.result_view.set_reference_document(old_reference)
             self.result_view.run_command('lsp_ast_grep_insert', {
                 "point": 0,
                 "characters": characters
             })
+            self.result_view.set_reference_document(old_reference)
             buttons_html = BUTTONS_TEMPLATE.format(
                 apply=sublime.command_url('chain', {
                     'commands': [
@@ -370,7 +369,6 @@ class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepCli):
 
         self.last_file_name: str | None = None
 
-
         def on_match(match: Match) -> None:
             is_empty_view = self.result_view.size() > 0
             self.result_view.set_read_only(False)
@@ -385,6 +383,13 @@ class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepCli):
         def on_done(matches: dict[str, list[Match]]) -> None:
             if self.result_view:
                 self.result_view.show(0)
+            file_count = len(matches)
+            total_changes = sum(len(value[0]) for value in matches.values())
+            characters = f"Found {total_changes} matches across {file_count} files\n\n"
+            self.result_view.run_command('lsp_ast_grep_insert', {
+                "point": 0,
+                "characters": characters
+            })
 
         self.result_view.set_read_only(False)
         self.result_view.run_command('lsp_ast_grep_clear_panel')

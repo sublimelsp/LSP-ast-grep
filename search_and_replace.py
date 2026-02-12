@@ -18,7 +18,7 @@ BUTTONS_TEMPLATE = """
     html {{
         background-color: transparent;
         margin-top: 1.5rem;
-        margin-bottom: 1rem;
+        margin-bottom: 0.5rem;
     }}
     a {{
         line-height: 1.6rem;
@@ -304,8 +304,8 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
             sublime.set_timeout(toggle_diff, 0)
             file_count = len(matches)
             total_changes = sum(len(value[0]) for value in matches.values())
-            characters = f"Apply {total_changes} changes across {file_count} files?"
-            old_reference = characters + '\n' + old_reference
+            characters = f"Apply {total_changes} changes across {file_count} files?\n"
+            old_reference = characters + old_reference
             self.result_view.run_command('lsp_ast_grep_insert', {
                 "point": 0,
                 "characters": characters

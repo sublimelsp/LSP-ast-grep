@@ -340,6 +340,7 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
 
         self.result_view.set_read_only(False)
         self.result_view.run_command('lsp_ast_grep_clear_panel')
+        self.result_view.set_reference_document('')
         self.replace(search_query, replace_query, on_match=on_match, on_done=on_done)
 
 

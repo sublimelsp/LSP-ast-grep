@@ -2,8 +2,6 @@ from __future__ import annotations
 from functools import partial
 import threading
 
-from LSP.plugin import filename_to_uri
-from LSP.protocol import WorkspaceEdit
 from .plugin import LspAstGrep
 from LSP.plugin.core.types import debounced
 from typing import Callable, NotRequired, TypedDict
@@ -132,7 +130,7 @@ class AstGrepCli:
         thread.start()
 
     def replace(self, search_query:str, replace_query: str, paths: list[str] | None = None,
-                on_match: Callable[[Match], None] | None =None, on_done: Callable[[dict[str, list[Match]]], None] | None =None) -> None:
+                on_match: Callable[[Match], None] | None =None, on_done: Callable[[dict[str, list[Match]]], None] | None =None, update_all=False) -> None:
         if AstGrepCli.process:
             AstGrepCli.process.kill()
             AstGrepCli.process = None
@@ -144,19 +142,21 @@ class AstGrepCli:
 
         def run_replace():
             ast_cli = LspAstGrep.binary_path()
-            process = subprocess.Popen([ast_cli, 'run', '--pattern', search_query,  '--rewrite',  replace_query, '--json=stream', *search_paths],
-               cwd=cwd,
-               stdout=subprocess.PIPE,
-               stderr=subprocess.PIPE)
+            cmd = [ast_cli, 'run', '--pattern', search_query,  '--rewrite',  replace_query]
+            if update_all:
+                cmd.append('--update-all')
+            else:
+                cmd.append('--json=stream') # looks like it is not possivle to use --update-all with --json=stream
+            cmd.extend(search_paths)
+            process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
-            if process.stdout:
+            if on_match and process.stdout:
                 for line in process.stdout:
                     if AstGrepCli.process != process:
                         return
                     match: Match = sublime.decode_value(line.decode('utf-8'))  # pyright: ignore[reportAssignmentType]
-                    if on_match:
-                        on_match(match)
+                    on_match(match)
                     matches.setdefault(match['file'], []).append(match)
             _ = process.wait()
             if on_done:
@@ -257,28 +257,16 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
 
         self.phantom_set = sublime.PhantomSet(self.result_view, "lsp_ast_grep_accept_buttons")
         old_reference = ''
-        workspace_edit: WorkspaceEdit = {"changes": {}}
         def on_match(match: Match) -> None:
             nonlocal old_reference
-            nonlocal workspace_edit
             if 'replacement' not in match:
-                print('LSP-ast-grep: replacement key is missing.')
+                print('LSP-ast-grep: "replacement" key is missing in match dict. Skipping.')
                 return
             self.result_view.set_read_only(False)
             if not self.result_view.size():
                 # add one extra new line, when the view is clear for the phantom button
                 old_reference = '\n'
                 self.result_view.run_command("append", {"characters": '\n', 'scroll_to_end': False})
-
-
-            uri = filename_to_uri(match['file'])
-            workspace_edit['changes'].setdefault(uri, []).append({
-                'range': {
-                    'start': {'line': match['range']['start']['line'], 'character': match['range']['start']['column']},
-                    'end': {'line': match['range']['end']['line'], 'character': match['range']['end']['column']}
-                },
-                'newText': match['replacement']
-            })
             if self.last_file_name != match['file']:
                 new_text = match['file'] + ':\n'
                 old_reference += new_text
@@ -293,7 +281,6 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
             self.result_view.clear_undo_stack()
 
         def on_done(matches: dict[str, list[Match]]) -> None:
-            nonlocal workspace_edit
             nonlocal old_reference
             def toggle_diff():
                 selection = self.result_view.sel()
@@ -316,6 +303,10 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
                 apply=sublime.command_url('chain', {
                     'commands': [
                         ['hide_panel', {}],
+                        ['lsp_ast_grep_accept_replace', {
+                            'search_query': search_query,
+                            'replace_query': replace_query
+                        }]
                     ]
                 }),
                 discard=sublime.command_url('chain', {
@@ -333,6 +324,14 @@ class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstG
         self.result_view.run_command('lsp_ast_grep_clear_panel')
         self.result_view.set_reference_document('')
         self.replace(search_query, replace_query, on_match=on_match, on_done=on_done)
+
+
+class lsp_ast_grep_accept_replace_command(sublime_plugin.WindowCommand, AstGrepCli):
+    def run(self, search_query: str, replace_query: str):
+        def on_done(_matches: dict[str, list[Match]]) -> None:
+            self.window.status_message("LSP-ast-grep: Edits applied.")
+
+        self.replace(search_query, replace_query, on_done=on_done, update_all=True)
 
 
 class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepCli):

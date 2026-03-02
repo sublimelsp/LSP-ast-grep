@@ -48,12 +48,18 @@ BUTTONS_TEMPLATE = """
 class RightPane:
     active = False
     @staticmethod
-    def get_search_view(window: sublime.Window) -> sublime.View | None:
-        return next((view for view in window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-search-view'), None)
+    def get_pattern_view(window: sublime.Window) -> sublime.View | None:
+        return next((view for view in window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-pattern-view'), None)
 
     @staticmethod
-    def get_replace_view(window: sublime.Window) -> sublime.View | None:
-        return next((view for view in window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-replace-view'), None)
+    def get_yaml_view(window: sublime.Window) -> sublime.View | None:
+        return next((view for view in window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-yaml-view'), None)
+
+    @staticmethod
+    def get_rewrite_view(window: sublime.Window) -> sublime.View | None:
+        return next((view for view in window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-rewrite-view'), None)
+
+
 
 
 class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
@@ -67,28 +73,39 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
             _group, index = self.window.get_view_index(view)
             self.window.set_view_index(view, 0, index)
 
-        syntax = 'Packages/LSP-ast-grep/AstGrepSearch.sublime-syntax'
-        search_view = RightPane.get_search_view(self.window)
-        if not search_view:
-            search_view = self.window.new_file()
-            search_view.settings().set('lsp-ast-grep.view.id', 'ast-grep-search-view')
-            search_view.set_syntax_file(syntax)
-            search_view.settings().set('is_widget', True) # when pasting this prevents auto-setting the sytnax
-            search_view.set_name('Search')
-            search_view.set_scratch(True)
-        self.window.set_view_index(search_view, 1, 0)
+        pattern_syntax = 'Packages/LSP-ast-grep/AstGrepPattern.sublime-syntax'
+        pattern_view = RightPane.get_pattern_view(self.window)
+        if not pattern_view:
+            pattern_view = self.window.new_file()
+            pattern_view.settings().set('lsp-ast-grep.view.id', 'ast-grep-pattern-view')
+            pattern_view.set_syntax_file(pattern_syntax)
+            pattern_view.settings().set('is_widget', True) # when pasting this prevents auto-setting the sytnax
+            pattern_view.set_name('Pattern')
+            pattern_view.set_scratch(True)
+        self.window.set_view_index(pattern_view, 1, 0)
 
-        replace_view = RightPane.get_replace_view(self.window)
-        if not replace_view:
-            replace_view = self.window.new_file()
-            replace_view.settings().set('lsp-ast-grep.view.id', 'ast-grep-replace-view')
-            replace_view.settings().set('is_widget', True) # when pasting this prevents auto-setting the sytnax
-            replace_view.set_syntax_file(syntax)
-            replace_view.set_name('Replace')
-            replace_view.set_scratch(True)
-        self.window.set_view_index(replace_view, 2, 0)
+        yaml_syntax = 'Packages/LSP-ast-grep/AstGrepYaml.sublime-syntax'
+        yaml_view = RightPane.get_yaml_view(self.window)
+        if not yaml_view:
+            yaml_view = self.window.new_file()
+            yaml_view.settings().set('lsp-ast-grep.view.id', 'ast-grep-yaml-view')
+            yaml_view.set_syntax_file(yaml_syntax)
+            yaml_view.settings().set('is_widget', True) # when pasting this prevents auto-setting the sytnax
+            yaml_view.set_name('Yaml')
+            yaml_view.set_scratch(True)
+        self.window.set_view_index(yaml_view, 1, 1)
 
-        self.window.focus_view(search_view)
+        rewrite_view = RightPane.get_rewrite_view(self.window)
+        if not rewrite_view:
+            rewrite_view = self.window.new_file()
+            rewrite_view.settings().set('lsp-ast-grep.view.id', 'ast-grep-rewrite-view')
+            rewrite_view.settings().set('is_widget', True) # when pasting this prevents auto-setting the sytnax
+            rewrite_view.set_syntax_file(pattern_syntax)
+            rewrite_view.set_name('Rewrite')
+            rewrite_view.set_scratch(True)
+        self.window.set_view_index(rewrite_view, 2, 0)
+
+        self.window.focus_view(pattern_view)
         RightPane.active = True
 
 
@@ -169,10 +186,10 @@ class AstGrepCli:
         window = view.window()
         if not window:
             return
-        search_view = RightPane.get_search_view(window)
-        if not search_view:
+        pattern_view = RightPane.get_pattern_view(window)
+        if not pattern_view:
             return
-        search_query = search_view.substr(sublime.Region(0, search_view.size()))
+        search_query = pattern_view.substr(sublime.Region(0, pattern_view.size()))
         active_view = window.active_view_in_group(0)
         if active_view is None:
             return
@@ -214,18 +231,18 @@ class AstGrepCli:
         self.search(search_query, paths=[file_name], on_done=on_done)
 
 
-class lsp_ast_grep_search_and_replace_command(sublime_plugin.WindowCommand, AstGrepCli):
+class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, AstGrepCli):
     def run(self) -> None:
-        search_view = next((view for view in self.window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-search-view'), None)
-        if not search_view:
+        pattern_view = next((view for view in self.window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-pattern-view'), None)
+        if not pattern_view:
             return
-        search_query = search_view.substr(sublime.Region(0, search_view.size()))
+        search_query = pattern_view.substr(sublime.Region(0, pattern_view.size()))
         if not search_query.strip():
             return
-        replace_view = next((view for view in self.window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-replace-view'), None)
-        if not replace_view:
+        rewrite_view = next((view for view in self.window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-rewrite-view'), None)
+        if not rewrite_view:
             return
-        replace_query = replace_view.substr(sublime.Region(0, replace_view.size()))
+        replace_query = rewrite_view.substr(sublime.Region(0, rewrite_view.size()))
         if not replace_query.strip():
             return
 
@@ -334,12 +351,12 @@ class lsp_ast_grep_accept_replace_command(sublime_plugin.WindowCommand, AstGrepC
         self.replace(search_query, replace_query, on_done=on_done, update_all=True)
 
 
-class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepCli):
+class lsp_ast_grep_pattern_command(sublime_plugin.WindowCommand, AstGrepCli):
     def run(self) -> None:
-        search_view = RightPane.get_search_view(self.window)
-        if not search_view:
+        pattern_view = RightPane.get_pattern_view(self.window)
+        if not pattern_view:
             return
-        search_query = search_view.substr(sublime.Region(0, search_view.size()))
+        search_query = pattern_view.substr(sublime.Region(0, pattern_view.size()))
         if not search_query.strip():
             return
 
@@ -400,7 +417,7 @@ class lsp_ast_grep_search_command(sublime_plugin.WindowCommand, AstGrepCli):
 class AstGrepSearchHighlightListener(sublime_plugin.ViewEventListener, AstGrepCli):
     @classmethod
     def is_applicable(cls, settings: sublime.Settings) -> bool:
-        return settings.get('lsp-ast-grep.view.id') == 'ast-grep-search-view'
+        return settings.get('lsp-ast-grep.view.id') == 'ast-grep-pattern-view'
 
     def on_modified(self) -> None:
         if self.view.is_dirty():
@@ -412,7 +429,7 @@ class AstGrepSearchHighlightListener(sublime_plugin.ViewEventListener, AstGrepCl
 class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstGrepCli):
     @classmethod
     def is_applicable(cls, settings: sublime.Settings) -> bool:
-        return settings.get('lsp-ast-grep.view.id') in ['ast-grep-search-view', 'ast-grep-replace-view']
+        return settings.get('lsp-ast-grep.view.id') in ['ast-grep-pattern-view', 'ast-grep-rewrite-view']
 
     def on_query_context(self, key: str, operator: int, operand: Any, match_all: bool) -> bool | None:
         # You can filter key bindings by the precense of a provider,
@@ -429,13 +446,15 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
         window = self.view.window()
         if not window:
             return
-        if view_id == 'ast-grep-search-view':
-            replace_view = RightPane.get_replace_view(window)
-            if replace_view:
-                sublime.set_timeout(lambda: replace_view.close())
-        search_view = RightPane.get_search_view(window)
-        if search_view:
-            sublime.set_timeout(lambda: search_view.close())
+        rewrite_view = RightPane.get_rewrite_view(window)
+        if rewrite_view:
+            sublime.set_timeout(lambda: rewrite_view.close())
+        yaml_view = RightPane.get_yaml_view(window)
+        if yaml_view:
+            sublime.set_timeout(lambda: yaml_view.close())
+        pattern_view = RightPane.get_pattern_view(window)
+        if pattern_view:
+            sublime.set_timeout(lambda: pattern_view.close())
 
         # clear highlight regions on pane close
         for v in window.views():

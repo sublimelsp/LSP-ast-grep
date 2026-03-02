@@ -1,13 +1,13 @@
 [
     {
         "keys": ["primary+enter"],
-        "command": "lsp_ast_grep_search",
-        "context": [{"key": "ast-grep.view", "operator": "equal", "operand": "ast-grep-search-view" } ]
+        "command": "lsp_ast_grep_pattern",
+        "context": [{"key": "ast-grep.view", "operator": "equal", "operand": "ast-grep-pattern-view" } ]
     },
     {
         "keys": ["primary+enter" ],
-        "command": "lsp_ast_grep_search_and_replace",
-        "context": [{"key": "ast-grep.view", "operator": "equal", "operand": "ast-grep-replace-view" }
+        "command": "lsp_ast_grep_pattern_and_rewrite",
+        "context": [{"key": "ast-grep.view", "operator": "equal", "operand": "ast-grep-rewrite-view" }
         ]
     }
 ]

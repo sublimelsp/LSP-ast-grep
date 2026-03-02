@@ -1,0 +1,12 @@
+%YAML 1.2
+---
+# See http://www.sublimetext.com/docs/syntax.html
+scope: source.yaml.ast-grep
+hidden: true
+version: 2
+
+
+contexts:
+  main:
+    - include: scope:source.yaml
+      apply_prototype: true

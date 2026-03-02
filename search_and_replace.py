@@ -429,7 +429,7 @@ class AstGrepSearchHighlightListener(sublime_plugin.ViewEventListener, AstGrepCl
 class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstGrepCli):
     @classmethod
     def is_applicable(cls, settings: sublime.Settings) -> bool:
-        return settings.get('lsp-ast-grep.view.id') in ['ast-grep-pattern-view', 'ast-grep-rewrite-view']
+        return settings.get('lsp-ast-grep.view.id') in ['ast-grep-pattern-view', 'ast-grep-rewrite-view', 'ast-grep-yaml-view']
 
     def on_query_context(self, key: str, operator: int, operand: Any, match_all: bool) -> bool | None:
         # You can filter key bindings by the precense of a provider,

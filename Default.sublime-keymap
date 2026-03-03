@@ -9,5 +9,11 @@
         "command": "lsp_ast_grep_pattern_and_rewrite",
         "context": [{"key": "ast-grep.view", "operator": "equal", "operand": "ast-grep-rewrite-view" }
         ]
+    },
+    {
+        "keys": ["primary+enter" ],
+        "command": "lsp_ast_grep_run_rule",
+        "context": [{"key": "ast-grep.view", "operator": "equal", "operand": "ast-grep-yaml-rule-view" }
+        ]
     }
 ]

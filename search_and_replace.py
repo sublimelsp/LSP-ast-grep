@@ -52,8 +52,8 @@ class RightPane:
         return next((view for view in window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-pattern-view'), None)
 
     @staticmethod
-    def get_yaml_view(window: sublime.Window) -> sublime.View | None:
-        return next((view for view in window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-yaml-view'), None)
+    def get_yaml_rule_view(window: sublime.Window) -> sublime.View | None:
+        return next((view for view in window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-yaml-rule-view'), None)
 
     @staticmethod
     def get_rewrite_view(window: sublime.Window) -> sublime.View | None:
@@ -86,15 +86,15 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
         self.window.set_view_index(pattern_view, 1, 0)
 
         yaml_syntax = 'Packages/LSP-ast-grep/AstGrepYaml.sublime-syntax'
-        yaml_view = RightPane.get_yaml_view(self.window)
-        if not yaml_view:
-            yaml_view = self.window.new_file()
-            yaml_view.settings().set('lsp-ast-grep.view.id', 'ast-grep-yaml-view')
-            yaml_view.set_syntax_file(yaml_syntax)
-            yaml_view.set_name('Yaml')
-            yaml_view.run_command("append", {"characters": get_yaml_content(active_view)})
-            yaml_view.set_scratch(True)
-        self.window.set_view_index(yaml_view, 1, 1)
+        yaml_rule_view = RightPane.get_yaml_rule_view(self.window)
+        if not yaml_rule_view:
+            yaml_rule_view = self.window.new_file()
+            yaml_rule_view.settings().set('lsp-ast-grep.view.id', 'ast-grep-yaml-rule-view')
+            yaml_rule_view.set_syntax_file(yaml_syntax)
+            yaml_rule_view.set_name('Yaml')
+            yaml_rule_view.run_command("append", {"characters": get_yaml_content(active_view)})
+            yaml_rule_view.set_scratch(True)
+        self.window.set_view_index(yaml_rule_view, 1, 1)
 
         rewrite_view = RightPane.get_rewrite_view(self.window)
         if not rewrite_view:
@@ -113,7 +113,7 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
 class AstGrepCli:
     process: subprocess.Popen | None = None
 
-    def search(self, search_query:str, *, paths: list[str] | None = None, on_match: Callable[[Match], None] | None =None,
+    def pattern_search(self, search_query:str, *, paths: list[str] | None = None, on_match: Callable[[Match], None] | None =None,
                on_done: Callable[[dict[str, list[Match]]], None] | None =None) -> None:
         if AstGrepCli.process:
             AstGrepCli.process.kill()
@@ -147,7 +147,7 @@ class AstGrepCli:
         thread = threading.Thread(target=run_search)
         thread.start()
 
-    def replace(self, search_query:str, replace_query: str, paths: list[str] | None = None,
+    def rewrite(self, search_query:str, replace_query: str, paths: list[str] | None = None,
                 on_match: Callable[[Match], None] | None =None, on_done: Callable[[dict[str, list[Match]]], None] | None =None, update_all=False) -> None:
         if AstGrepCli.process:
             AstGrepCli.process.kill()
@@ -166,6 +166,38 @@ class AstGrepCli:
             else:
                 cmd.append('--json=stream') # looks like it is not possivle to use --update-all with --json=stream
             cmd.extend(search_paths)
+            process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            AstGrepCli.process = process
+            matches: dict[str, list[Match]] = {}
+            if on_match and process.stdout:
+                for line in process.stdout:
+                    if AstGrepCli.process != process:
+                        return
+                    match: Match = sublime.decode_value(line.decode('utf-8'))  # pyright: ignore[reportAssignmentType]
+                    on_match(match)
+                    matches.setdefault(match['file'], []).append(match)
+            _ = process.wait()
+            if on_done:
+                sublime.set_timeout(partial(on_done,matches), 100)
+
+        thread = threading.Thread(target=run_replace)
+        thread.start()
+
+    def rewrite_inline_rule(self, inline_rules:str, paths: list[str] | None = None,
+                on_match: Callable[[Match], None] | None =None, on_done: Callable[[dict[str, list[Match]]], None] | None =None, update_all=False) -> None:
+        if AstGrepCli.process:
+            AstGrepCli.process.kill()
+            AstGrepCli.process = None
+        folders = sublime.active_window().folders()
+        if not folders:
+            return
+        cwd = folders[0]
+        search_paths = [*(paths or []), *folders]
+
+        def run_replace():
+            ast_cli = LspAstGrep.binary_path()
+            cmd = [ast_cli, 'scan', '--inline-rules', '--json=stream', 'id: inline-rule\n' + inline_rules]
+            # cmd.extend(search_paths)
             process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
@@ -229,18 +261,18 @@ class AstGrepCli:
                 erase_keys.append(f'lsp-ast-grep.match-multi.{key}')
                 active_view.add_regions(f'lsp-ast-grep.match-multi.{key}', regions, f'region.bluish lsp-ast-grep.match-multi.{key}', flags=sublime.RegionFlags.DRAW_NO_FILL | sublime.RegionFlags.DRAW_STIPPLED_UNDERLINE| sublime.RegionFlags.DRAW_NO_OUTLINE | sublime.RegionFlags.NO_UNDO )
             active_view.settings().set('ast-grep-var-key', erase_keys)
-        self.search(search_query, paths=[file_name], on_done=on_done)
+        self.pattern_search(search_query, paths=[file_name], on_done=on_done)
 
 
 class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, AstGrepCli):
     def run(self) -> None:
-        pattern_view = next((view for view in self.window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-pattern-view'), None)
+        pattern_view = RightPane.get_pattern_view(self.window)
         if not pattern_view:
             return
         search_query = pattern_view.substr(sublime.Region(0, pattern_view.size()))
         if not search_query.strip():
             return
-        rewrite_view = next((view for view in self.window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-rewrite-view'), None)
+        rewrite_view = RightPane.get_rewrite_view(self.window)
         if not rewrite_view:
             return
         replace_query = rewrite_view.substr(sublime.Region(0, rewrite_view.size()))
@@ -341,7 +373,7 @@ class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, Ast
         self.result_view.set_read_only(False)
         self.result_view.run_command('lsp_ast_grep_clear_panel')
         self.result_view.set_reference_document('')
-        self.replace(search_query, replace_query, on_match=on_match, on_done=on_done)
+        self.rewrite(search_query, replace_query, on_match=on_match, on_done=on_done)
 
 
 class lsp_ast_grep_accept_replace_command(sublime_plugin.WindowCommand, AstGrepCli):
@@ -349,7 +381,7 @@ class lsp_ast_grep_accept_replace_command(sublime_plugin.WindowCommand, AstGrepC
         def on_done(_matches: dict[str, list[Match]]) -> None:
             self.window.status_message("LSP-ast-grep: Edits applied.")
 
-        self.replace(search_query, replace_query, on_done=on_done, update_all=True)
+        self.rewrite(search_query, replace_query, on_done=on_done, update_all=True)
 
 
 class lsp_ast_grep_pattern_command(sublime_plugin.WindowCommand, AstGrepCli):
@@ -412,7 +444,7 @@ class lsp_ast_grep_pattern_command(sublime_plugin.WindowCommand, AstGrepCli):
 
         self.result_view.set_read_only(False)
         self.result_view.run_command('lsp_ast_grep_clear_panel')
-        self.search(search_query, on_match=on_match, on_done=on_done)
+        self.pattern_search(search_query, on_match=on_match, on_done=on_done)
 
 
 class AstGrepSearchHighlightListener(sublime_plugin.ViewEventListener, AstGrepCli):
@@ -430,7 +462,7 @@ class AstGrepSearchHighlightListener(sublime_plugin.ViewEventListener, AstGrepCl
 class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstGrepCli):
     @classmethod
     def is_applicable(cls, settings: sublime.Settings) -> bool:
-        return settings.get('lsp-ast-grep.view.id') in ['ast-grep-pattern-view', 'ast-grep-rewrite-view', 'ast-grep-yaml-view']
+        return settings.get('lsp-ast-grep.view.id') in ['ast-grep-pattern-view', 'ast-grep-rewrite-view', 'ast-grep-yaml-rule-view']
 
     def on_query_context(self, key: str, operator: int, operand: Any, match_all: bool) -> bool | None:
         # You can filter key bindings by the precense of a provider,
@@ -450,9 +482,9 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
         rewrite_view = RightPane.get_rewrite_view(window)
         if rewrite_view:
             sublime.set_timeout(lambda: rewrite_view.close())
-        yaml_view = RightPane.get_yaml_view(window)
-        if yaml_view:
-            sublime.set_timeout(lambda: yaml_view.close())
+        yaml_rule_view = RightPane.get_yaml_rule_view(window)
+        if yaml_rule_view:
+            sublime.set_timeout(lambda: yaml_rule_view.close())
         pattern_view = RightPane.get_pattern_view(window)
         if pattern_view:
             sublime.set_timeout(lambda: pattern_view.close())
@@ -594,3 +626,104 @@ fix:
 {indentation}logger.log($A)
 """
     return content
+
+
+class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
+    def run(self) -> None:
+        yaml_rule_view = RightPane.get_yaml_rule_view(self.window)
+        if not yaml_rule_view:
+            return
+        inline_rules_query = yaml_rule_view.substr(sublime.Region(0, yaml_rule_view.size()))
+        if not inline_rules_query.strip():
+            return
+        folders = self.window.folders()
+        if not folders:
+            return
+        cwd=folders[0]
+
+        panel_name = 'ast-grep (search and replace)'
+        self.result_view = self.window.find_output_panel(panel_name)
+        if self.result_view:
+            self.result_view.run_command('lsp_ast_grep_clear_panel')
+        else:
+            self.result_view = self.window.create_output_panel(panel_name)
+            self.result_view.set_syntax_file('Packages/LSP/Syntaxes/References.sublime-syntax')
+            self.result_view.set_name('Find Results')
+            self.result_view.set_scratch(True)
+        PANEL_FILE_REGEX = r"^(\S.*):$"
+        PANEL_LINE_REGEX = r"^\s+(\d+):(\d+)"
+        settings = self.result_view.settings()
+        settings.set("result_base_dir", cwd)
+        settings.set("result_file_regex", PANEL_FILE_REGEX)
+        settings.set("result_line_regex", PANEL_LINE_REGEX)
+
+        self.result_view.show(0)
+        self.window.run_command("show_panel", {"panel": f"output.{panel_name}"})
+
+        self.last_file_name: str | None = None
+
+        self.phantom_set = sublime.PhantomSet(self.result_view, "lsp_ast_grep_accept_buttons")
+        old_reference = ''
+        def on_match(match: Match) -> None:
+            nonlocal old_reference
+            if 'replacement' not in match:
+                print('LSP-ast-grep: "replacement" key is missing in match dict. Skipping.')
+                return
+            self.result_view.set_read_only(False)
+            if not self.result_view.size():
+                # add one extra new line, when the view is clear for the phantom button
+                old_reference = '\n'
+                self.result_view.run_command("append", {"characters": '\n', 'scroll_to_end': False})
+            if self.last_file_name != match['file']:
+                new_text = match['file'] + ':\n'
+                old_reference += new_text
+                self.result_view.run_command("append", {"characters": new_text, 'scroll_to_end': False})
+                self.last_file_name = match['file']
+            old_reference += " {:>4}:{:<4} {}".format(match['range']['start']['line'] + 1, match['range']['start']['column'] + 1, re.sub(r'\s+', ' ', match['text'].replace('\n', ''))) + "\n\n"
+            line =           " {:>4}:{:<4} {}".format(match['range']['start']['line'] + 1, match['range']['start']['column'] + 1, match['replacement']) + "\n\n"
+
+            self.result_view.run_command("append", {"characters": line, 'scroll_to_end': False})
+            self.result_view.set_read_only(True)
+            self.result_view.set_reference_document(old_reference)
+            self.result_view.clear_undo_stack()
+
+        def on_done(matches: dict[str, list[Match]]) -> None:
+            nonlocal old_reference
+            def toggle_diff():
+                selection = self.result_view.sel()
+                selection.add(sublime.Region(0, self.result_view.size()))
+                self.result_view.run_command('toggle_inline_diff')
+                selection.clear()
+                if self.result_view:
+                    self.result_view.show(0, show_surrounds=False, keep_to_left=False, animate=False)
+            sublime.set_timeout(toggle_diff, 0)
+            file_count = len(matches)
+            total_changes = sum(len(value[0]) for value in matches.values())
+            characters = f"Apply {total_changes} changes across {file_count} files?\n"
+            old_reference = characters + old_reference
+            self.result_view.run_command('lsp_ast_grep_insert', {
+                "point": 0,
+                "characters": characters
+            })
+            self.result_view.set_reference_document(old_reference)
+            buttons_html = BUTTONS_TEMPLATE.format(
+                apply=sublime.command_url('chain', {
+                    'commands': [
+                        ['hide_panel', {}]
+                    ]
+                }),
+                discard=sublime.command_url('chain', {
+                    'commands': [
+                        ['hide_panel', {}],
+                    ]
+                })
+            )
+            self.phantom_set.update([
+                sublime.Phantom(sublime.Region(-1, -1), buttons_html, sublime.PhantomLayout.BLOCK)
+            ])
+
+
+        self.result_view.set_read_only(False)
+        self.result_view.run_command('lsp_ast_grep_clear_panel')
+        self.result_view.set_reference_document('')
+        self.rewrite_inline_rule(inline_rules_query, on_match=on_match, on_done=on_done)

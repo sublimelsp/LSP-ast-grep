@@ -64,6 +64,7 @@ class RightPane:
 
 class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
     def run(self) -> None:
+        active_view = self.window.active_view()
         self.window.set_layout({
             'cells': [[0, 0, 1, 2], [1, 0, 2, 1], [1, 1, 2, 2]],
             'cols': [0.0, 0.6, 1.0],
@@ -90,8 +91,8 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
             yaml_view = self.window.new_file()
             yaml_view.settings().set('lsp-ast-grep.view.id', 'ast-grep-yaml-view')
             yaml_view.set_syntax_file(yaml_syntax)
-            yaml_view.settings().set('is_widget', True) # when pasting this prevents auto-setting the sytnax
             yaml_view.set_name('Yaml')
+            yaml_view.run_command("append", {"characters": get_yaml_content(active_view)})
             yaml_view.set_scratch(True)
         self.window.set_view_index(yaml_view, 1, 1)
 
@@ -544,3 +545,52 @@ class LspAstGrepInsertCommand(sublime_plugin.TextCommand):
         self.view.set_read_only(False)
         self.view.insert(edit, point, characters)
         self.view.set_read_only(True)
+
+scope_to_schema = {
+    "DEFAULT": ("rule.json", "''"),
+    "source.shell": ("bash_rule.json", "bash"),
+    "source.c": ("c_rule.json", "c"),
+    "source.c++": ("cpp_rule.json", "c++"),
+    "source.cs": ("csharp_rule.json", "csharp"),
+    "source.css": ("css_rule.json", "css"),
+    "source.elixir": ("elixir_rule.json", "elixir"),
+    "source.go": ("go_rule.json", "go"),
+    "source.haskell": ("haskell_rule.json", "haskell"),
+    "text.html.basic": ("html_rule.json", "html"),
+    "source.java": ("java_rule.json", "java"),
+    "source.js": ("javascript_rule.json", "javascript"),
+    "source.jsx": ("javascript_rule.json", "jsx"),
+    "source.json": ("json_rule.json", "json"),
+    "source.Kotlin": ("kotlin_rule.json", "kotlin"),
+    "source.lua": ("lua_rule.json", "lua"),
+    "embedding.php": ("php_rule.json", "php"),
+    "source.python": ("python_rule.json", "python"),
+    "source.ruby": ("ruby_rule.json", "ruby"),
+    "source.rust": ("rust_rule.json", "rust"),
+    "source.scala": ("scala_rule.json", "scala"),
+    "source.swift": ("swift_rule.json", "swift"),
+    "source.tsx": ("tsx_rule.json", "tsx"),
+    "source.ts": ("typescript_rule.json", "typescript"),
+    "source.yaml": ("yaml_rule.json", "yaml")
+}
+
+
+def get_yaml_content(view: sublime.View | None):
+    base_scope = 'DEFAULT'
+    tab_size = 4
+    if view and (syntax := view.syntax()):
+        base_scope = syntax.scope
+        tab_size= view.settings().get('tab_size', 4)
+    json_schema, language= scope_to_schema[base_scope]
+    indentation = " " * tab_size
+    content = f"""# YAML Rule is more powerful! - https://ast-grep.github.io/guide/rule-config.html#rule
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/{json_schema}
+language: {language}
+rule:
+{indentation}any:
+{indentation}{indentation}- pattern: console.log($A)
+{indentation}{indentation}- pattern: console.debug($A)
+fix:
+{indentation}logger.log($A)
+"""
+    return content

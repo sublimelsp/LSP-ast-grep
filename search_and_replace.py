@@ -435,7 +435,7 @@ class lsp_ast_grep_pattern_command(sublime_plugin.WindowCommand, AstGrepCli):
             if self.result_view:
                 self.result_view.show(0)
             file_count = len(matches)
-            total_changes = sum(len(value[0]) for value in matches.values())
+            total_changes = sum(len(value) for value in matches.values())
             characters = f"Found {total_changes} matches across {file_count} files\n\n"
             self.result_view.run_command('lsp_ast_grep_insert', {
                 "point": 0,

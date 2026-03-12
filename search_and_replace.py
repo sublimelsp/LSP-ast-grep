@@ -46,7 +46,7 @@ BUTTONS_TEMPLATE = """
 
 
 class RightPane:
-    active = False
+    active_window_id: int| None= None
     @staticmethod
     def get_pattern_view(window: sublime.Window) -> sublime.View | None:
         return next((view for view in window.views() if view.settings().get('lsp-ast-grep.view.id') == 'ast-grep-pattern-view'), None)
@@ -91,7 +91,7 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
             yaml_rule_view = self.window.new_file()
             yaml_rule_view.settings().set('lsp-ast-grep.view.id', 'ast-grep-yaml-rule-view')
             yaml_rule_view.set_syntax_file(yaml_syntax)
-            yaml_rule_view.set_name('Yaml')
+            yaml_rule_view.set_name('Advanced')
             yaml_rule_view.run_command("append", {"characters": get_yaml_content(active_view)})
             yaml_rule_view.set_scratch(True)
         self.window.set_view_index(yaml_rule_view, 1, 1)
@@ -107,11 +107,46 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
         self.window.set_view_index(rewrite_view, 2, 0)
 
         self.window.focus_view(pattern_view)
-        RightPane.active = True
+        RightPane.active_window_id = self.window.id()
 
 
 class AstGrepCli:
     process: subprocess.Popen | None = None
+
+    def ast_tree(self, content, language, on_done):
+        if AstGrepCli.process:
+            AstGrepCli.process.kill()
+            AstGrepCli.process = None
+        folders = sublime.active_window().folders()
+        if not folders:
+            return
+        cwd = folders[0]
+        def run_search():
+            ast_cli = LspAstGrep.binary_path()
+            cmd = [ast_cli, '-p', content, '--lang', language, '--debug-query=ast']
+            print('cmd', cmd)
+            process = subprocess.Popen(
+                cmd,
+                cwd=cwd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            AstGrepCli.process = process
+            matches: list[str] = []
+            if process.stderr:
+                for line in process.stderr:
+                    decoded_line = line.decode("utf-8")
+                    if "Cannot parse query" in decoded_line:
+                        break
+                    matches.append(decoded_line)
+            _ = process.wait()
+            print('done')
+            if on_done:
+                sublime.set_timeout(partial(on_done,"".join(matches)), 100)
+
+        thread = threading.Thread(target=run_search)
+        thread.start()
+
 
     def pattern_search(self, search_query:str, *, paths: list[str] | None = None, on_match: Callable[[Match], None] | None =None,
                on_done: Callable[[dict[str, list[Match]]], None] | None =None) -> None:
@@ -262,6 +297,20 @@ class AstGrepCli:
                 active_view.add_regions(f'lsp-ast-grep.match-multi.{key}', regions, f'region.bluish lsp-ast-grep.match-multi.{key}', flags=sublime.RegionFlags.DRAW_NO_FILL | sublime.RegionFlags.DRAW_STIPPLED_UNDERLINE| sublime.RegionFlags.DRAW_NO_OUTLINE | sublime.RegionFlags.NO_UNDO )
             active_view.settings().set('ast-grep-var-key', erase_keys)
         self.pattern_search(search_query, paths=[file_name], on_done=on_done)
+
+class lll_command(sublime_plugin.TextCommand, AstGrepCli):
+    def run(self, edit) -> None:
+        content = self.view.substr(sublime.Region(0,self.view.size()))
+        base_scope = 'DEFAULT'
+        if self.view and (syntax := self.view.syntax()):
+            base_scope = syntax.scope
+        _, language= scope_to_schema[base_scope]
+        print("language", language)
+        def on_done(ast):
+            print(ast)
+        self.ast_tree(content, language, on_done)
+
+
 
 
 class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, AstGrepCli):
@@ -498,13 +547,13 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
             window.set_layout({'cells': [[0, 0, 1, 1]], 'cols': [0.0, 1.0], 'rows': [0.0, 1.0]})
 
         sublime.set_timeout(layout)
-        RightPane.active = False
+        RightPane.active_window_id = None
 
 
 class AstGrepSearchOpenListener(sublime_plugin.EventListener, AstGrepCli):
     @classmethod
     def is_applicable(cls, settings: sublime.Settings) -> bool:
-        return RightPane.active
+        return bool(RightPane.active_window_id)
 
     def on_activated(self, view: sublime.View) -> None:
         self.highlight_matches(view)
@@ -512,7 +561,8 @@ class AstGrepSearchOpenListener(sublime_plugin.EventListener, AstGrepCli):
     def on_load(self, view: sublime.View) -> None:
         self.highlight_matches(view)
         window = view.window()
-        if window and window.active_group() != 0:
+        print('de', window.id() == RightPane.active_window_id)
+        if window and window.active_group() != 0 and window.id() == RightPane.active_window_id:
             window.set_view_index(view, 0, -1)
 
     def on_clone(self, view: sublime.View) -> None:

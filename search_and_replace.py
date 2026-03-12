@@ -340,6 +340,7 @@ class lll_command(sublime_plugin.TextCommand, AstGrepCli):
             self.result_view.run_command("append", {"characters": ast, "scroll_to_end": False})
             self.result_view.set_read_only(True)
             self.result_view.show(0)
+            self.result_view.clear_undo_stack()
 
         self.ast_tree(content, language, on_done)
 

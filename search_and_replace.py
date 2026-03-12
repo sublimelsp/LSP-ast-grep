@@ -1,5 +1,6 @@
 from __future__ import annotations
 from functools import partial
+import os
 import threading
 
 from .plugin import LspAstGrep
@@ -123,7 +124,7 @@ class AstGrepCli:
         cwd = folders[0]
         def run_search():
             ast_cli = LspAstGrep.binary_path()
-            cmd = [ast_cli, '-p', content, '--lang', language, '--debug-query=ast']
+            cmd = [ast_cli, "-p", content, "--lang", language, "--debug-query=cst"]
             print('cmd', cmd)
             process = subprocess.Popen(
                 cmd,
@@ -300,13 +301,46 @@ class AstGrepCli:
 
 class lll_command(sublime_plugin.TextCommand, AstGrepCli):
     def run(self, edit) -> None:
+        window = self.view.window()
+        if not window:
+            return
+        folders = window.folders()
+        if not folders:
+            return
+        cwd = folders[0]
+        panel_name = 'ast-grep (ast)'
+        self.result_view = window.find_output_panel(panel_name)
+        if self.result_view:
+            self.result_view.run_command('lsp_ast_grep_clear_panel')
+        else:
+            self.result_view = window.create_output_panel(panel_name)
+            self.result_view.set_syntax_file('Packages/LSP/Syntaxes/References.sublime-syntax')
+            self.result_view.set_name('Find Results')
+            self.result_view.set_scratch(True)
+        PANEL_FILE_REGEX = r"^(\S.*): Debug CST:$"
+        PANEL_LINE_REGEX = r"\((\d+),(\d+)\)-\(\d+,\d+\)$"
+        settings = self.result_view.settings()
+        settings.set("result_base_dir", cwd)
+        settings.set("result_file_regex", PANEL_FILE_REGEX)
+        settings.set("result_line_regex", PANEL_LINE_REGEX)
+        self.result_view.set_read_only(False)
+
+        self.result_view.show(0)
+        window.run_command("show_panel", {"panel": f"output.{panel_name}"})
         content = self.view.substr(sublime.Region(0,self.view.size()))
         base_scope = 'DEFAULT'
         if self.view and (syntax := self.view.syntax()):
             base_scope = syntax.scope
         _, language = scope_to_schema[base_scope] if base_scope in scope_to_schema else scope_to_schema["DEFAULT"]
         def on_done(ast):
-            print(ast)
+            self.result_view.run_command(
+                "append",
+                {"characters": os.path.relpath(self.view.file_name(), cwd) + ": ", "scroll_to_end": False},
+            )
+            self.result_view.run_command("append", {"characters": ast, "scroll_to_end": False})
+            self.result_view.set_read_only(True)
+            self.result_view.show(0)
+
         self.ast_tree(content, language, on_done)
 
 

@@ -304,8 +304,7 @@ class lll_command(sublime_plugin.TextCommand, AstGrepCli):
         base_scope = 'DEFAULT'
         if self.view and (syntax := self.view.syntax()):
             base_scope = syntax.scope
-        _, language= scope_to_schema[base_scope]
-        print("language", language)
+        _, language = scope_to_schema[base_scope] if base_scope in scope_to_schema else scope_to_schema["DEFAULT"]
         def on_done(ast):
             print(ast)
         self.ast_tree(content, language, on_done)
@@ -663,7 +662,9 @@ def get_yaml_content(view: sublime.View | None):
     if view and (syntax := view.syntax()):
         base_scope = syntax.scope
         tab_size= view.settings().get('tab_size', 4)
-    json_schema, language= scope_to_schema[base_scope]
+    json_schema, language = (
+        scope_to_schema[base_scope] if base_scope in scope_to_schema else scope_to_schema['DEFAULT']
+    )
     indentation = " " * tab_size
     content = f"""# YAML Rule is more powerful! - https://ast-grep.github.io/guide/rule-config.html#rule
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/{json_schema}

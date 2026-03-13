@@ -5,7 +5,7 @@ import threading
 
 from .plugin import LspAstGrep
 from LSP.plugin.core.types import debounced
-from typing import Callable, NotRequired, TypedDict
+from typing import Any, Callable, NotRequired, TypedDict
 import re
 import sublime
 import sublime_plugin
@@ -125,7 +125,6 @@ class AstGrepCli:
         def run_search():
             ast_cli = LspAstGrep.binary_path()
             cmd = [ast_cli, "-p", content, "--lang", language, "--debug-query=cst"]
-            print('cmd', cmd)
             process = subprocess.Popen(
                 cmd,
                 cwd=cwd,
@@ -147,10 +146,8 @@ class AstGrepCli:
                         lambda m: f"({int(m.group(1)) + 1},{m.group(2)})-({int(m.group(3)) + 1},{m.group(4)})",
                         zero_based_output,
                     )
-                    print("one_based_row", one_based_row)
                     matches.append(one_based_row)
             _ = process.wait()
-            print('done')
             if on_done:
                 sublime.set_timeout(partial(on_done,"".join(matches)), 100)
 
@@ -322,18 +319,23 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
             return
         cwd = folders[0]
         panel_name = 'ast-grep (ast)'
+
+        preselect_row = 1
+        sel = self.view.sel()
+        if sel:
+            preselect_row = self.view.rowcol(sel[0].b)[0] + 1
         self.result_view = window.find_output_panel(panel_name)
         if self.result_view:
             self.result_view.run_command('lsp_ast_grep_clear_panel')
         else:
             self.result_view = window.create_output_panel(panel_name)
-            self.result_view.set_syntax_file('Packages/LSP/Syntaxes/References.sublime-syntax')
             self.result_view.set_name('Find Results')
             self.result_view.set_scratch(True)
-        PANEL_FILE_REGEX = r"^(\S.*): Debug CST:$"
+        PANEL_FILE_REGEX = r"^(\S.*): Debug \w+:$"
         PANEL_LINE_REGEX = r"\((\d+),(\d+)\)-\(\d+,\d+\)$"
         settings = self.result_view.settings()
         settings.set("result_base_dir", cwd)
+        settings.set("lsp-ast-grep.view.id", "ast-grep-ast-output-view")
         settings.set("result_file_regex", PANEL_FILE_REGEX)
         settings.set("result_line_regex", PANEL_LINE_REGEX)
         self.result_view.set_read_only(False)
@@ -352,12 +354,40 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
             )
             self.result_view.run_command("append", {"characters": ast, "scroll_to_end": False})
             self.result_view.set_read_only(True)
-            self.result_view.show(0)
             self.result_view.clear_undo_stack()
+            found_region = self.result_view.find(f" ({preselect_row},", 0, sublime.FindFlags.LITERAL) or 0
+            self.result_view.show(found_region)
 
         self.ast_tree(content, language, on_done)
 
 
+class AstGrepHighlightTreeNodeccListener(sublime_plugin.EventListener):
+    def on_hover(self, view, point, hover_zone):
+        print('vode')
+        if RightPane.active_window_id is None:
+            return
+        if view.settings().get("lsp-ast-grep.view.id") != "ast-grep-ast-output-view":
+            return
+        if hover_zone != sublime.HoverZone.TEXT:
+            return
+        line_text = view.substr(view.line(point))
+        pattern = r"\((\d+),(\d+)\)-\((\d+),(\d+)\)"
+        match = re.compile(pattern).search(line_text)
+        file_name = view.substr(view.line(0)).split(":")[0]
+        source_view = view.window().open_file(file_name)
+        if match:
+            row_start = int(match.group(1)) - 1
+            col_start = int(match.group(2))
+            row_end = int(match.group(3)) - 1
+            col_end = int(match.group(4))
+            region = sublime.Region(
+                source_view.text_point(row_start, col_start),
+                source_view.text_point(row_end, col_end)
+            )
+            source_view.add_regions(
+                "ast_grep_highlight_ast_node", [region], "region.yellowish", flags=sublime.DRAW_NO_OUTLINE
+            )
+            sublime.set_timeout(lambda: source_view.erase_regions("ast_grep_highlight_ast_node"), 1000)
 
 
 class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, AstGrepCli):
@@ -608,7 +638,6 @@ class AstGrepSearchOpenListener(sublime_plugin.EventListener, AstGrepCli):
     def on_load(self, view: sublime.View) -> None:
         self.highlight_matches(view)
         window = view.window()
-        print('de', window.id() == RightPane.active_window_id)
         if window and window.active_group() != 0 and window.id() == RightPane.active_window_id:
             window.set_view_index(view, 0, -1)
 

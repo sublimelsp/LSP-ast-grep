@@ -327,11 +327,13 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
             preselect_row = self.view.rowcol(sel[0].b)[0] + 1
         self.result_view = window.find_output_panel(panel_name)
         if self.result_view:
+            self.result_view.set_read_only(False)
             self.result_view.run_command('lsp_ast_grep_clear_panel')
         else:
             self.result_view = window.create_output_panel(panel_name)
             self.result_view.set_name('Find Results')
             self.result_view.set_scratch(True)
+        self.result_view.set_read_only(False)
         PANEL_FILE_REGEX = r"^(\S.*): Debug \w+:$"
         PANEL_LINE_REGEX = r"\((\d+),(\d+)\)-\(\d+,\d+\)$"
         settings = self.result_view.settings()
@@ -358,6 +360,7 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
             self.result_view.clear_undo_stack()
             found_region = self.result_view.find(f" ({preselect_row},", 0, sublime.FindFlags.LITERAL) or 0
             self.result_view.show(found_region)
+
 
         self.ast_tree(content, language, on_done)
 

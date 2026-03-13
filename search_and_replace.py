@@ -309,6 +309,10 @@ class AstGrepCli:
         self.pattern_search(search_query, paths=[file_name], on_done=on_done)
 
 class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
+    def is_visible(self):
+        window = self.view.window()
+        return bool(window and window.id() == RightPane.active_window_id)
+
     def run(self, edit) -> None:
         window = self.view.window()
         if not window:

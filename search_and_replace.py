@@ -364,7 +364,6 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
 
 class AstGrepHighlightTreeNodeccListener(sublime_plugin.EventListener):
     def on_hover(self, view, point, hover_zone):
-        print('vode')
         if RightPane.active_window_id is None:
             return
         if view.settings().get("lsp-ast-grep.view.id") != "ast-grep-ast-output-view":

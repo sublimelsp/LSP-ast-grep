@@ -134,12 +134,21 @@ class AstGrepCli:
             )
             AstGrepCli.process = process
             matches: list[str] = []
+            pattern = r"\((\d+),(\d+)\)-\((\d+),(\d+)\)"
             if process.stderr:
                 for line in process.stderr:
-                    decoded_line = line.decode("utf-8")
-                    if "Cannot parse query" in decoded_line:
+                    zero_based_output = line.decode("utf-8")
+                    if "Cannot parse query" in zero_based_output:
                         break
-                    matches.append(decoded_line)
+                    # Convert ast-grep's 0-based rows to 1-based coordinates
+                    # Example: "future_import_statement (0,0)-(0,34)" -> "(1,0)-(1,34)"
+                    one_based_row = re.sub(
+                        pattern,
+                        lambda m: f"({int(m.group(1)) + 1},{m.group(2)})-({int(m.group(3)) + 1},{m.group(4)})",
+                        zero_based_output,
+                    )
+                    print("one_based_row", one_based_row)
+                    matches.append(one_based_row)
             _ = process.wait()
             print('done')
             if on_done:
@@ -299,7 +308,7 @@ class AstGrepCli:
             active_view.settings().set('ast-grep-var-key', erase_keys)
         self.pattern_search(search_query, paths=[file_name], on_done=on_done)
 
-class lll_command(sublime_plugin.TextCommand, AstGrepCli):
+class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
     def run(self, edit) -> None:
         window = self.view.window()
         if not window:

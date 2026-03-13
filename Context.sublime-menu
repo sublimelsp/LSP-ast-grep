@@ -1,0 +1,6 @@
+[
+    {
+        "command": "lsp_ast_grep_show_ast",
+        "caption": "Show Tree-sitter AST (ast-grep)"
+    }
+]

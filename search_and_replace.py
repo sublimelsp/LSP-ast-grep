@@ -319,6 +319,7 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
             return
         cwd = folders[0]
         panel_name = 'ast-grep (ast)'
+        file_name = self.view.file_name()
 
         preselect_row = 1
         sel = self.view.sel()
@@ -350,7 +351,7 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
         def on_done(ast):
             self.result_view.run_command(
                 "append",
-                {"characters": os.path.relpath(self.view.file_name(), cwd) + ": ", "scroll_to_end": False},
+                {"characters": os.path.relpath(file_name, cwd) + ": ", "scroll_to_end": False},
             )
             self.result_view.run_command("append", {"characters": ast, "scroll_to_end": False})
             self.result_view.set_read_only(True)

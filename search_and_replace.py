@@ -440,7 +440,7 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
         def on_done(ast):
             self.result_view.run_command(
                 "append",
-                {"characters": os.path.relpath(file_name, cwd) + ": ", "scroll_to_end": False},
+                {"characters": (file_name or '') + ": ", "scroll_to_end": False},
             )
             self.result_view.run_command("append", {"characters": ast, "scroll_to_end": False})
             self.result_view.set_read_only(True)

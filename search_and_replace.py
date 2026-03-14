@@ -781,9 +781,12 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
         yaml_rule_view = RightPane.get_yaml_rule_view(self.window)
         if not yaml_rule_view:
             return
-        p = yaml_rule_view.find("$^#", 0)
-        print('p', p)
-        inline_rules_query = yaml_rule_view.substr(sublime.Region(p.b or 0, yaml_rule_view.size()))
+
+        # the yaml rule view has some comments at the top
+        # we need to strip comments out, because the inline_rules_query will be send to the cli command
+        # and the cli command will throw an error
+        begin_of_yaml_rule = yaml_rule_view.find("$language:", 0)
+        inline_rules_query = yaml_rule_view.substr(sublime.Region(begin_of_yaml_rule.begin() or 0, yaml_rule_view.size()))
         if not inline_rules_query.strip():
             return
         folders = self.window.folders()

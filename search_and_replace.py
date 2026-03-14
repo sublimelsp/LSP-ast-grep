@@ -107,7 +107,7 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
             rewrite_view.set_scratch(True)
         self.window.set_view_index(rewrite_view, 2, 0)
 
-        self.window.focus_view(yaml_rule_view)
+        self.window.focus_view(pattern_view)
         RightPane.active_window_id = self.window.id()
 
 

@@ -373,11 +373,28 @@ class AstGrepHighlightTreeNodeccListener(sublime_plugin.EventListener):
             return
         if hover_zone != sublime.HoverZone.TEXT:
             return
+        self.highlight_node_at_point(view, point)
+
+    def on_selection_modified(self, view) -> None:
+        if view.settings().get("lsp-ast-grep.view.id") != "ast-grep-ast-output-view":
+            return
+        change_count = view.change_count()
+        point = get_point(view)
+        debounced(
+            lambda: self.highlight_node_at_point(view, point),
+            300,
+            lambda: change_count == view.change_count(),
+        )
+
+
+    def highlight_node_at_point(self, view, point):
         line_text = view.substr(view.line(point))
         pattern = r"\((\d+),(\d+)\)-\((\d+),(\d+)\)"
         match = re.compile(pattern).search(line_text)
         file_name = view.substr(view.line(0)).split(":")[0]
-        source_view = view.window().open_file(file_name)
+        source_view = view.window().find_open_file(file_name)
+        if not source_view:
+            return
         if match:
             row_start = int(match.group(1)) - 1
             col_start = int(match.group(2))
@@ -858,3 +875,11 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
         self.result_view.run_command('lsp_ast_grep_clear_panel')
         self.result_view.set_reference_document('')
         self.rewrite_inline_rule(inline_rules_query, on_match=on_match, on_done=on_done)
+
+
+def get_point(view: sublime.View):
+    sel = view.sel()
+    region = sel[0] if sel else None
+    if region is None:
+        return
+    return region.b

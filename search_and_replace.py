@@ -164,7 +164,7 @@ class AstGrepCli:
         if not folders:
             return
         cwd = folders[0]
-        search_paths = [*(paths or []), *folders]
+        search_paths = paths or folders
         def run_search():
             ast_cli = LspAstGrep.binary_path()
             cmd = [ast_cli, 'run', '--pattern', search_query, '--json=stream', *search_paths]
@@ -198,7 +198,7 @@ class AstGrepCli:
         if not folders:
             return
         cwd = folders[0]
-        search_paths = [*(paths or []), *folders]
+        search_paths = paths or folders
 
         def run_replace():
             ast_cli = LspAstGrep.binary_path()
@@ -234,7 +234,7 @@ class AstGrepCli:
         if not folders:
             return
         cwd = folders[0]
-        search_paths = [*(paths or []), *folders]
+        search_paths = paths or folders
 
         def run_replace():
             ast_cli = LspAstGrep.binary_path()
@@ -243,12 +243,18 @@ class AstGrepCli:
             process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
-            if on_match and process.stdout:
+            if process.stderr:
+                error_output = process.stderr.read().decode("utf-8")
+                print(f"Error content: '{error_output}'")
+
+            if process.stdout:
                 for line in process.stdout:
                     if AstGrepCli.process != process:
                         return
                     match: Match = sublime.decode_value(line.decode('utf-8'))  # pyright: ignore[reportAssignmentType]
-                    on_match(match)
+                    print('match')
+                    if on_match:
+                        on_match(match)
                     matches.setdefault(match['file'], []).append(match)
             _ = process.wait()
             if on_done:
@@ -304,6 +310,87 @@ class AstGrepCli:
                 active_view.add_regions(f'lsp-ast-grep.match-multi.{key}', regions, f'region.bluish lsp-ast-grep.match-multi.{key}', flags=sublime.RegionFlags.DRAW_NO_FILL | sublime.RegionFlags.DRAW_STIPPLED_UNDERLINE| sublime.RegionFlags.DRAW_NO_OUTLINE | sublime.RegionFlags.NO_UNDO )
             active_view.settings().set('ast-grep-var-key', erase_keys)
         self.pattern_search(search_query, paths=[file_name], on_done=on_done)
+
+    def highlight_matches_yaml_rule(self, view: sublime.View) -> None:
+        window = view.window()
+        if not window:
+            return
+        yaml_rule_view = RightPane.get_yaml_rule_view(window)
+        if not yaml_rule_view:
+            return
+
+        start = yaml_rule_view.find("^language:", 0)
+        end = yaml_rule_view.find("^fix:", 0)
+        search_query = yaml_rule_view.substr(sublime.Region(start.begin() or 0, end.begin() or yaml_rule_view.size()))
+        active_view = window.active_view_in_group(0)
+        if active_view is None:
+            return
+        file_name = active_view.file_name()
+        if file_name is None:
+            return
+
+        def on_done(matches: dict[str, list[Match]]) -> None:
+            file_matches = matches.get(file_name) or []
+            for key in active_view.settings().get("ast-grep-var-key") or []:
+                active_view.erase_regions(key)
+            match_regions: list[sublime.Region] = []
+            single_regions: dict[str, list[sublime.Region]] = {}
+            multi_regions: dict[str, list[sublime.Region]] = {}
+            for match in file_matches:
+                start_point = active_view.text_point(match["range"]["start"]["line"], match["range"]["start"]["column"])
+                end_point = active_view.text_point(match["range"]["end"]["line"], match["range"]["end"]["column"])
+                match_regions.append(sublime.Region(start_point, end_point))
+                for var_name, meta_var in match.get("metaVariables", {}).get("single", {}).items():
+                    start_point = active_view.text_point(
+                        meta_var["range"]["start"]["line"], meta_var["range"]["start"]["column"]
+                    )
+                    end_point = active_view.text_point(
+                        meta_var["range"]["end"]["line"], meta_var["range"]["end"]["column"]
+                    )
+                    single_regions.setdefault(var_name, []).append(sublime.Region(start_point, end_point))
+                for var_name, meta_vars in match.get("metaVariables", {}).get("multi", {}).items():
+                    for meta_var in meta_vars:
+                        start_point = active_view.text_point(
+                            meta_var["range"]["start"]["line"], meta_var["range"]["start"]["column"]
+                        )
+                        end_point = active_view.text_point(
+                            meta_var["range"]["end"]["line"], meta_var["range"]["end"]["column"]
+                        )
+                        multi_regions.setdefault(var_name, []).append(sublime.Region(start_point, end_point))
+            erase_keys = ["lsp-ast-grep.match-line"]
+            active_view.add_regions(
+                "lsp-ast-grep.match-line",
+                match_regions,
+                "region.bluish",
+                flags=sublime.RegionFlags.DRAW_NO_FILL | sublime.RegionFlags.NO_UNDO,
+            )
+            for key in single_regions:
+                regions = single_regions[key]
+                erase_keys.append(f"lsp-ast-grep.match-single.{key}")
+                active_view.add_regions(
+                    f"lsp-ast-grep.match-single.{key}",
+                    regions,
+                    f"region.bluish lsp-ast-grep.match-single.{key}",
+                    flags=sublime.RegionFlags.DRAW_NO_FILL
+                    | sublime.RegionFlags.DRAW_STIPPLED_UNDERLINE
+                    | sublime.RegionFlags.DRAW_NO_OUTLINE
+                    | sublime.RegionFlags.NO_UNDO,
+                )
+            for key in multi_regions:
+                regions = multi_regions[key]
+                erase_keys.append(f"lsp-ast-grep.match-multi.{key}")
+                active_view.add_regions(
+                    f"lsp-ast-grep.match-multi.{key}",
+                    regions,
+                    f"region.bluish lsp-ast-grep.match-multi.{key}",
+                    flags=sublime.RegionFlags.DRAW_NO_FILL
+                    | sublime.RegionFlags.DRAW_STIPPLED_UNDERLINE
+                    | sublime.RegionFlags.DRAW_NO_OUTLINE
+                    | sublime.RegionFlags.NO_UNDO,
+                )
+            active_view.settings().set("ast-grep-var-key", erase_keys)
+
+        self.rewrite_inline_rule(search_query, paths=[file_name], on_done=on_done)
 
 class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
     def is_visible(self):
@@ -363,7 +450,6 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
 
 
         self.ast_tree(content, language, on_done)
-
 
 class AstGrepHighlightTreeNodeccListener(sublime_plugin.EventListener):
     def on_hover(self, view, point, hover_zone):
@@ -487,7 +573,7 @@ class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, Ast
                     self.result_view.show(0, show_surrounds=False, keep_to_left=False, animate=False)
             sublime.set_timeout(toggle_diff, 0)
             file_count = len(matches)
-            total_changes = sum(len(value[0]) for value in matches.values())
+            total_changes = sum(len(value) for value in matches.values())
             characters = f"Apply {total_changes} changes across {file_count} files?\n"
             old_reference = characters + old_reference
             self.result_view.run_command('lsp_ast_grep_insert', {
@@ -596,13 +682,23 @@ class lsp_ast_grep_pattern_command(sublime_plugin.WindowCommand, AstGrepCli):
 class AstGrepSearchHighlightListener(sublime_plugin.ViewEventListener, AstGrepCli):
     @classmethod
     def is_applicable(cls, settings: sublime.Settings) -> bool:
-        return settings.get('lsp-ast-grep.view.id') == 'ast-grep-pattern-view'
+        return settings.get("lsp-ast-grep.view.id") in ["ast-grep-pattern-view", "ast-grep-yaml-rule-view"]
 
     def on_modified(self) -> None:
         if self.view.is_dirty():
             return
-        change_count = self.view.change_count()
-        debounced(lambda: self.highlight_matches(self.view), 300, lambda: self.view.is_valid() and change_count == self.view.change_count())
+        view_id = self.view.settings().get("lsp-ast-grep.view.id")
+        print("view_id", view_id)
+        if view_id == 'ast-grep-pattern-view':
+            change_count = self.view.change_count()
+            debounced(lambda: self.highlight_matches(self.view), 300, lambda: self.view.is_valid() and change_count == self.view.change_count())
+        if view_id == "ast-grep-yaml-rule-view":
+            change_count = self.view.change_count()
+            debounced(
+                lambda: self.highlight_matches_yaml_rule(self.view),
+                300,
+                lambda: self.view.is_valid() and change_count == self.view.change_count(),
+            )
 
 
 class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstGrepCli):
@@ -851,7 +947,7 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
                     self.result_view.show(0, show_surrounds=False, keep_to_left=False, animate=False)
             sublime.set_timeout(toggle_diff, 0)
             file_count = len(matches)
-            total_changes = sum(len(value[0]) for value in matches.values())
+            total_changes = sum(len(value) for value in matches.values())
             characters = f"Apply {total_changes} changes across {file_count} files?\n"
             old_reference = characters + old_reference
             self.result_view.run_command('lsp_ast_grep_insert', {

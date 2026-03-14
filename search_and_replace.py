@@ -555,7 +555,7 @@ class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, Ast
                 self.result_view.run_command("append", {"characters": new_text, 'scroll_to_end': False})
                 self.last_file_name = match['file']
             old_reference += " {:>4}:{:<4} {}".format(match['range']['start']['line'] + 1, match['range']['start']['column'] + 1, re.sub(r'\s+', ' ', match['text'].replace('\n', ''))) + "\n\n"
-            line =           " {:>4}:{:<4} {}".format(match['range']['start']['line'] + 1, match['range']['start']['column'] + 1, match['replacement']) + "\n\n"
+            line =           " {:>4}:{:<4} {}".format(match['range']['start']['line'] + 1, match['range']['start']['column'] + 1, re.sub(r'\s+', ' ', match['replacement'].replace('\n', ''))) + "\n\n"
 
             self.result_view.run_command("append", {"characters": line, 'scroll_to_end': False})
             self.result_view.set_read_only(True)

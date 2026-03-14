@@ -1,3 +1,5 @@
+# YAML Rule is more powerful! - https://ast-grep.github.io/guide/rule-config.html#rule
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/javascript_rule.json
 id: no-console-except-error
 language: javascript
 rule:

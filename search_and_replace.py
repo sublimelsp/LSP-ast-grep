@@ -107,7 +107,7 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
             rewrite_view.set_scratch(True)
         self.window.set_view_index(rewrite_view, 2, 0)
 
-        self.window.focus_view(pattern_view)
+        self.window.focus_view(yaml_rule_view)
         RightPane.active_window_id = self.window.id()
 
 
@@ -238,8 +238,8 @@ class AstGrepCli:
 
         def run_replace():
             ast_cli = LspAstGrep.binary_path()
-            cmd = [ast_cli, 'scan', '--inline-rules', '--json=stream', 'id: inline-rule\n' + inline_rules]
-            # cmd.extend(search_paths)
+            cmd = [ast_cli, 'scan', '--json=stream', '--inline-rules', 'id: inline-rule\n' + inline_rules]
+            cmd.extend(search_paths)
             process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
@@ -781,7 +781,9 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
         yaml_rule_view = RightPane.get_yaml_rule_view(self.window)
         if not yaml_rule_view:
             return
-        inline_rules_query = yaml_rule_view.substr(sublime.Region(0, yaml_rule_view.size()))
+        p = yaml_rule_view.find("$^#", 0)
+        print('p', p)
+        inline_rules_query = yaml_rule_view.substr(sublime.Region(p.b or 0, yaml_rule_view.size()))
         if not inline_rules_query.strip():
             return
         folders = self.window.folders()

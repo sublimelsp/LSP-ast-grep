@@ -2,18 +2,18 @@
     {
         "keys": ["primary+enter"],
         "command": "lsp_ast_grep_pattern",
-        "context": [{"key": "ast-grep.view", "operator": "equal", "operand": "ast-grep-pattern-view" } ]
+        "context": [{"key": "ast-grep.view", "operator": "equal", "operand": "pattern-view" } ]
     },
     {
         "keys": ["primary+enter" ],
         "command": "lsp_ast_grep_pattern_and_rewrite",
-        "context": [{"key": "ast-grep.view", "operator": "equal", "operand": "ast-grep-rewrite-view" }
+        "context": [{"key": "ast-grep.view", "operator": "equal", "operand": "rewrite-view" }
         ]
     },
     {
         "keys": ["primary+enter" ],
         "command": "lsp_ast_grep_run_rule",
-        "context": [{"key": "ast-grep.view", "operator": "equal", "operand": "ast-grep-yaml-rule-view" }
+        "context": [{"key": "ast-grep.view", "operator": "equal", "operand": "yaml-rule-view" }
         ]
     }
 ]

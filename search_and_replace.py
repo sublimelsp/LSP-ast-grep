@@ -52,15 +52,15 @@ class RightPane:
     active_window_id: int| None= None
     @staticmethod
     def get_pattern_view(window: sublime.Window) -> sublime.View | None:
-        return next((v for v in window.views() if v.settings().get('ast-grep.view.id') == 'pattern-view'), None)
+        return next((v for v in window.views() if v.settings().get('ast-grep.view') == 'pattern-view'), None)
 
     @staticmethod
     def get_yaml_rule_view(window: sublime.Window) -> sublime.View | None:
-        return next((v for v in window.views() if v.settings().get('ast-grep.view.id') == 'yaml-rule-view'), None)
+        return next((v for v in window.views() if v.settings().get('ast-grep.view') == 'yaml-rule-view'), None)
 
     @staticmethod
     def get_rewrite_view(window: sublime.Window) -> sublime.View | None:
-        return next((v for v in window.views() if v.settings().get('ast-grep.view.id') == 'rewrite-view'), None)
+        return next((v for v in window.views() if v.settings().get('ast-grep.view') == 'rewrite-view'), None)
 
 
 class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
@@ -80,7 +80,7 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
         pattern_view = RightPane.get_pattern_view(self.window)
         if not pattern_view:
             pattern_view = self.window.new_file()
-            pattern_view.settings().set('ast-grep.view.id', 'pattern-view')
+            pattern_view.settings().set('ast-grep.view', 'pattern-view')
             pattern_view.set_syntax_file(pattern_syntax)
             pattern_view.settings().set('is_widget', True) # when pasting this prevents auto-setting the sytnax
             pattern_view.set_name('Pattern')
@@ -91,7 +91,7 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
         yaml_rule_view = RightPane.get_yaml_rule_view(self.window)
         if not yaml_rule_view:
             yaml_rule_view = self.window.new_file()
-            yaml_rule_view.settings().set('ast-grep.view.id', 'yaml-rule-view')
+            yaml_rule_view.settings().set('ast-grep.view', 'yaml-rule-view')
             yaml_rule_view.set_syntax_file(yaml_syntax)
             yaml_rule_view.set_name('Advanced')
             yaml_rule_view.run_command("append", {"characters": get_yaml_content(active_view)})
@@ -101,7 +101,7 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
         rewrite_view = RightPane.get_rewrite_view(self.window)
         if not rewrite_view:
             rewrite_view = self.window.new_file()
-            rewrite_view.settings().set('ast-grep.view.id', 'rewrite-view')
+            rewrite_view.settings().set('ast-grep.view', 'rewrite-view')
             rewrite_view.settings().set('is_widget', True) # when pasting this prevents auto-setting the sytnax
             rewrite_view.set_syntax_file(pattern_syntax)
             rewrite_view.set_name('Rewrite')
@@ -436,7 +436,7 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
         PANEL_LINE_REGEX = r"\((\d+),(\d+)\)-\(\d+,\d+\)$"
         settings = self.result_view.settings()
         settings.set("result_base_dir", cwd)
-        settings.set("ast-grep.view.id", "ast-grep-ast-output-view")
+        settings.set("ast-grep.view", "ast-grep-ast-output-view")
         settings.set("result_file_regex", PANEL_FILE_REGEX)
         settings.set("result_line_regex", PANEL_LINE_REGEX)
         self.result_view.set_read_only(False)
@@ -466,14 +466,14 @@ class AstGrepHighlightTreeNodeccListener(sublime_plugin.EventListener):
     def on_hover(self, view: sublime.View, point: int, hover_zone: sublime.HoverZone):
         if RightPane.active_window_id is None:
             return
-        if view.settings().get("ast-grep.view.id") != "ast-grep-ast-output-view":
+        if view.settings().get("ast-grep.view") != "ast-grep-ast-output-view":
             return
         if hover_zone != sublime.HoverZone.TEXT:
             return
         self.highlight_node_at_point(view, point)
 
     def on_selection_modified(self, view: sublime.View) -> None:
-        if view.settings().get("ast-grep.view.id") != "ast-grep-ast-output-view":
+        if view.settings().get("ast-grep.view") != "ast-grep-ast-output-view":
             return
         change_count = view.change_count()
         point = get_point(view)
@@ -695,12 +695,12 @@ class AstGrepSearchHighlightListener(sublime_plugin.ViewEventListener, AstGrepCl
     @classmethod
     @override
     def is_applicable(cls, settings: sublime.Settings) -> bool:
-        return settings.get("ast-grep.view.id") in ["pattern-view", "yaml-rule-view"]
+        return settings.get("ast-grep.view") in ["pattern-view", "yaml-rule-view"]
 
     def on_modified(self) -> None:
         if self.view.is_dirty():
             return
-        view_id = self.view.settings().get("ast-grep.view.id")
+        view_id = self.view.settings().get("ast-grep.view")
         print("view_id", view_id)
         if view_id == 'pattern-view':
             change_count = self.view.change_count()
@@ -718,18 +718,18 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
     @classmethod
     @override
     def is_applicable(cls, settings: sublime.Settings) -> bool:
-        return settings.get('ast-grep.view.id') in ['pattern-view', 'rewrite-view', 'yaml-rule-view']
+        return settings.get('ast-grep.view') in ['pattern-view', 'rewrite-view', 'yaml-rule-view']
 
     def on_query_context(self, key: str, operator: int, operand: Any, match_all: bool) -> bool | None:
         # You can filter key bindings by the precense of a provider,
         if key == "ast-grep.view" and operator == sublime.QueryOperator.EQUAL and \
                 isinstance(operand, str):
-            return self.view.settings().get('ast-grep.view.id') == operand
+            return self.view.settings().get('ast-grep.view') == operand
         return None
 
     def on_pre_close(self) -> None:
         # when you close the search or replace view, close both and restore the layout
-        view_id = self.view.settings().get('ast-grep.view.id')
+        view_id = self.view.settings().get('ast-grep.view')
         if not view_id:
             return
         window = self.view.window()

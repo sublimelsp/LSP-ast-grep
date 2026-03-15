@@ -415,13 +415,14 @@ class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, Ast
         result_view.show(0)
         self.window.run_command("show_panel", {"panel": f"output.{panel_name}"})
 
-        self.last_file_name: str | None = None
+        last_file_name: str | None = None
 
         self.phantom_set = sublime.PhantomSet(result_view, "lsp_ast_grep_accept_buttons")
         old_reference = ''
 
         def on_match(match: Match) -> None:
             nonlocal old_reference
+            nonlocal last_file_name
             if 'replacement' not in match:
                 print('LSP-ast-grep: "replacement" key is missing in match dict. Skipping.')
                 return
@@ -430,11 +431,11 @@ class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, Ast
                 # add one extra new line, when the view is clear for the phantom button
                 old_reference = '\n'
                 result_view.run_command("append", {"characters": '\n', 'scroll_to_end': False})
-            if self.last_file_name != match['file']:
+            if last_file_name != match['file']:
                 new_text = match['file'] + ':\n'
                 old_reference += new_text
                 result_view.run_command("append", {"characters": new_text, 'scroll_to_end': False})
-                self.last_file_name = match['file']
+                last_file_name = match['file']
             old_reference += (
                 " {:>4}:{:<4} {}".format(
                     match['range']['start']['line'] + 1,
@@ -556,15 +557,16 @@ class lsp_ast_grep_pattern_command(sublime_plugin.WindowCommand, AstGrepCli):
         result_view.show(0)
         self.window.run_command("show_panel", {"panel": f"output.{panel_name}"})
 
-        self.last_file_name: str | None = None
+        last_file_name: str | None = None
 
         def on_match(match: Match) -> None:
+            nonlocal last_file_name
             is_empty_view = result_view.size() > 0
             result_view.set_read_only(False)
-            if self.last_file_name != match['file']:
+            if last_file_name != match['file']:
                 maybe_new_line = '\n' if is_empty_view else ''
                 result_view.run_command("append", {"characters": maybe_new_line + match['file'] + ':\n'})
-                self.last_file_name = match['file']
+                last_file_name = match['file']
             line = " {:>4}:{:<4} {}".format(
                 match['range']['start']['line'] + 1,
                 match['range']['start']['column'] + 1,
@@ -784,13 +786,14 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
         result_view.show(0)
         self.window.run_command("show_panel", {"panel": f"output.{panel_name}"})
 
-        self.last_file_name: str | None = None
+        last_file_name: str | None = None
 
         self.phantom_set = sublime.PhantomSet(result_view, "lsp_ast_grep_accept_buttons")
         old_reference = ''
 
         def on_match(match: Match) -> None:
             nonlocal old_reference
+            nonlocal last_file_name
             if 'replacement' not in match:
                 print('LSP-ast-grep: "replacement" key is missing in match dict. Skipping.')
                 return
@@ -799,11 +802,11 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
                 # add one extra new line, when the view is clear for the phantom button
                 old_reference = '\n'
                 result_view.run_command("append", {"characters": '\n', 'scroll_to_end': False})
-            if self.last_file_name != match['file']:
+            if last_file_name != match['file']:
                 new_text = match['file'] + ':\n'
                 old_reference += new_text
                 result_view.run_command("append", {"characters": new_text, 'scroll_to_end': False})
-                self.last_file_name = match['file']
+                last_file_name = match['file']
             old_reference += (
                 " {:>4}:{:<4} {}".format(
                     match['range']['start']['line'] + 1,

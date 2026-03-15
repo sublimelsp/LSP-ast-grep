@@ -47,7 +47,7 @@ class HiglightMatcher(AstGrepCli):
 
         def on_done(matches: dict[str, list[Match]]) -> None:
             file_matches = matches.get(file_name) or []
-            for key in active_view.settings().get('ast-grep-var-key') or []:
+            for key in cast(list[str], active_view.settings().get('ast-grep-var-key', [])):
                 active_view.erase_regions(key)
             match_regions: list[sublime.Region] = []
             single_regions: dict[str, list[sublime.Region]] = {}
@@ -128,7 +128,7 @@ class HiglightMatcher(AstGrepCli):
 
         def on_done(matches: dict[str, list[Match]]) -> None:
             file_matches = matches.get(file_name) or []
-            for key in active_view.settings().get("ast-grep-var-key") or []:
+            for key in cast(list[str], active_view.settings().get('ast-grep-var-key', [])):
                 active_view.erase_regions(key)
             match_regions: list[sublime.Region] = []
             single_regions: dict[str, list[sublime.Region]] = {}
@@ -626,7 +626,7 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
 
         # clear highlight regions on pane close
         for v in window.views():
-            for key in v.settings().get('ast-grep-var-key') or []:
+            for key in cast(list[str], v.settings().get('ast-grep-var-key', [])):
                 v.erase_regions(key)
 
         def layout():

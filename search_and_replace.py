@@ -130,22 +130,22 @@ class AstGrepCli:
                 cmd,
                 cwd=cwd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stderr=subprocess.PIPE,
+                text=True
             )
             AstGrepCli.process = process
             matches: list[str] = []
             pattern = r"\((\d+),(\d+)\)-\((\d+),(\d+)\)"
             if process.stderr:
                 for line in process.stderr:
-                    zero_based_output = line.decode("utf-8")
-                    if "Cannot parse query" in zero_based_output:
+                    if "Cannot parse query" in line:
                         break
                     # Convert ast-grep's 0-based rows to 1-based coordinates
                     # Example: "future_import_statement (0,0)-(0,34)" -> "(1,0)-(1,34)"
                     one_based_row = re.sub(
                         pattern,
                         lambda m: f"({int(m.group(1)) + 1},{m.group(2)})-({int(m.group(3)) + 1},{m.group(4)})",
-                        zero_based_output,
+                        line,
                     )
                     matches.append(one_based_row)
             _ = process.wait()
@@ -175,19 +175,20 @@ class AstGrepCli:
                 cmd,
                 cwd=cwd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stderr=subprocess.PIPE,
+                text=True
             )
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
             if process.stdout:
                 for line in process.stdout:
-                    match: Match = sublime.decode_value(line.decode('utf-8'))  # pyright: ignore[reportAssignmentType]
+                    match: Match = sublime.decode_value(line)  # pyright: ignore[reportAssignmentType]
                     if on_match:
                         on_match(match)
                     matches.setdefault(match['file'], []).append(match)
             exit_code = process.wait()
             if exit_code != 0 and process.stderr:
-                error_msg = process.stderr.read().decode("utf-8")
+                error_msg = process.stderr.read()
                 raise Exception(f"Process failed with code {exit_code}: {error_msg}")
             if on_done:
                 sublime.set_timeout(partial(on_done,matches), 100)
@@ -217,19 +218,19 @@ class AstGrepCli:
             else:
                 cmd.append('--json=stream') # looks like it is not possivle to use --update-all with --json=stream
             cmd.extend(search_paths)
-            process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
             if on_match and process.stdout:
                 for line in process.stdout:
                     if AstGrepCli.process != process:
                         return
-                    match: Match = sublime.decode_value(line.decode('utf-8'))  # pyright: ignore[reportAssignmentType]
+                    match: Match = sublime.decode_value(line)  # pyright: ignore[reportAssignmentType]
                     on_match(match)
                     matches.setdefault(match['file'], []).append(match)
             exit_code = process.wait()
             if exit_code != 0 and process.stderr:
-                error_msg = process.stderr.read().decode("utf-8")
+                error_msg = process.stderr.read()
                 raise Exception(f"Process failed with code {exit_code}: {error_msg}")
             if on_done:
                 sublime.set_timeout(partial(on_done,matches), 100)
@@ -255,7 +256,7 @@ class AstGrepCli:
             ast_cli = LspAstGrep.binary_path()
             cmd = [ast_cli, 'scan', '--json=stream', '--inline-rules', 'id: inline-rule\n' + inline_rules]
             cmd.extend(search_paths)
-            process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
 
@@ -263,13 +264,13 @@ class AstGrepCli:
                 for line in process.stdout:
                     if AstGrepCli.process != process:
                         return
-                    match: Match = sublime.decode_value(line.decode('utf-8'))  # pyright: ignore[reportAssignmentType]
+                    match: Match = sublime.decode_value(line)  # pyright: ignore[reportAssignmentType]
                     if on_match:
                         on_match(match)
                     matches.setdefault(match['file'], []).append(match)
             exit_code = process.wait()
             if exit_code != 0 and process.stderr:
-                error_msg = process.stderr.read().decode("utf-8")
+                error_msg = process.stderr.read()
                 raise Exception(f"Process failed with code {exit_code}: {error_msg}")
             if on_done:
                 sublime.set_timeout(partial(on_done,matches), 100)

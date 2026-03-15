@@ -177,9 +177,8 @@ class AstGrepCli:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             )
-            if process.stderr:
-                error_output = process.stderr.read().decode("utf-8")
-                print("LSP-ast-grep (Error):", error_output)
+            if process.stderr and (error_output := process.stderr.read().decode("utf-8")):
+                raise Exception("LSP-ast-grep (Error):" + error_output)
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
             if process.stdout:
@@ -218,10 +217,8 @@ class AstGrepCli:
                 cmd.append('--json=stream') # looks like it is not possivle to use --update-all with --json=stream
             cmd.extend(search_paths)
             process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if process.stderr:
-                error_output = process.stderr.read().decode("utf-8")
-                print("LSP-ast-grep (Error):", error_output)
-                return
+            if process.stderr and (error_output := process.stderr.read().decode("utf-8")):
+                raise Exception("LSP-ast-grep (Error):" + error_output)
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
             if on_match and process.stdout:
@@ -257,10 +254,8 @@ class AstGrepCli:
             cmd = [ast_cli, 'scan', '--json=stream', '--inline-rules', 'id: inline-rule\n' + inline_rules]
             cmd.extend(search_paths)
             process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if process.stderr:
-                error_output = process.stderr.read().decode("utf-8")
-                print("LSP-ast-grep (Error):", error_output)
-                return
+            if process.stderr and (error_output := process.stderr.read().decode("utf-8")):
+                raise Exception("LSP-ast-grep (Error):" + error_output)
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
 

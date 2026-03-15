@@ -52,15 +52,15 @@ class RightPane:
     active_window_id: int | None = None
 
     @staticmethod
-    def get_pattern_view(window: sublime.Window) -> sublime.View | None:
+    def pattern_view(window: sublime.Window) -> sublime.View | None:
         return next((v for v in window.views() if v.settings().get('ast-grep.view') == 'pattern-view'), None)
 
     @staticmethod
-    def get_yaml_rule_view(window: sublime.Window) -> sublime.View | None:
+    def yaml_rule_view(window: sublime.Window) -> sublime.View | None:
         return next((v for v in window.views() if v.settings().get('ast-grep.view') == 'yaml-rule-view'), None)
 
     @staticmethod
-    def get_rewrite_view(window: sublime.Window) -> sublime.View | None:
+    def rewrite_view(window: sublime.Window) -> sublime.View | None:
         return next((v for v in window.views() if v.settings().get('ast-grep.view') == 'rewrite-view'), None)
 
 
@@ -76,7 +76,7 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
             self.window.set_view_index(view, 0, index)
 
         pattern_syntax = 'Packages/LSP-ast-grep/AstGrepPattern.sublime-syntax'
-        pattern_view = RightPane.get_pattern_view(self.window)
+        pattern_view = RightPane.pattern_view(self.window)
         if not pattern_view:
             pattern_view = self.window.new_file()
             pattern_view.settings().set('ast-grep.view', 'pattern-view')
@@ -87,7 +87,7 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
         self.window.set_view_index(pattern_view, 1, 0)
 
         yaml_syntax = 'Packages/LSP-ast-grep/AstGrepYaml.sublime-syntax'
-        yaml_rule_view = RightPane.get_yaml_rule_view(self.window)
+        yaml_rule_view = RightPane.yaml_rule_view(self.window)
         if not yaml_rule_view:
             yaml_rule_view = self.window.new_file()
             yaml_rule_view.settings().set('ast-grep.view', 'yaml-rule-view')
@@ -97,7 +97,7 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
             yaml_rule_view.set_scratch(True)
         self.window.set_view_index(yaml_rule_view, 1, 1)
 
-        rewrite_view = RightPane.get_rewrite_view(self.window)
+        rewrite_view = RightPane.rewrite_view(self.window)
         if not rewrite_view:
             rewrite_view = self.window.new_file()
             rewrite_view.settings().set('ast-grep.view', 'rewrite-view')
@@ -240,7 +240,7 @@ class AstGrepCli:
         paths: list[str] | None = None,
         on_match: Callable[[Match], None] | None = None,
         on_done: Callable[[dict[str, list[Match]]], None] | None = None,
-        update_all: bool = False,  # TODO: Implement update all
+        update_all: bool = False
     ) -> None:
         if AstGrepCli.process:
             AstGrepCli.process.kill()
@@ -253,7 +253,11 @@ class AstGrepCli:
 
         def run_replace() -> None:
             ast_cli = LspAstGrep.binary_path()
-            cmd = [ast_cli, 'scan', '--json=stream', '--inline-rules', 'id: inline-rule\n' + inline_rules]
+            cmd = [ast_cli, 'scan', '--inline-rules', 'id: inline-rule\n' + inline_rules]
+            if update_all:
+                cmd.append('--update-all')
+            else:
+                cmd.append('--json=stream')  # looks like it is not possivle to use --update-all with --json=stream
             cmd.extend(search_paths)
             process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             AstGrepCli.process = process
@@ -281,7 +285,7 @@ class AstGrepCli:
         window = view.window()
         if not window:
             return
-        pattern_view = RightPane.get_pattern_view(window)
+        pattern_view = RightPane.pattern_view(window)
         if not pattern_view:
             return
         search_query = pattern_view.substr(sublime.Region(0, pattern_view.size()))
@@ -359,7 +363,7 @@ class AstGrepCli:
         window = view.window()
         if not window:
             return
-        yaml_rule_view = RightPane.get_yaml_rule_view(window)
+        yaml_rule_view = RightPane.yaml_rule_view(window)
         if not yaml_rule_view:
             return
 
@@ -545,13 +549,13 @@ class AstGrepHighlightTreeNodeccListener(sublime_plugin.EventListener):
 class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, AstGrepCli):
     @override
     def run(self) -> None:
-        pattern_view = RightPane.get_pattern_view(self.window)
+        pattern_view = RightPane.pattern_view(self.window)
         if not pattern_view:
             return
         search_query = pattern_view.substr(sublime.Region(0, pattern_view.size()))
         if not search_query.strip():
             return
-        rewrite_view = RightPane.get_rewrite_view(self.window)
+        rewrite_view = RightPane.rewrite_view(self.window)
         if not rewrite_view:
             return
         replace_query = rewrite_view.substr(sublime.Region(0, rewrite_view.size()))
@@ -682,9 +686,17 @@ class lsp_ast_grep_accept_replace_command(sublime_plugin.WindowCommand, AstGrepC
         self.rewrite(search_query, replace_query, on_done=on_done, update_all=True)
 
 
+class lsp_ast_grep_accept_yaml_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
+    def run(self, inline_rules: str) -> None:
+        def on_done(_matches: dict[str, list[Match]]) -> None:
+            self.window.status_message("LSP-ast-grep: Edits applied.")
+
+        self.rewrite_inline_rule(inline_rules, on_done=on_done, update_all=True)
+
+
 class lsp_ast_grep_pattern_command(sublime_plugin.WindowCommand, AstGrepCli):
     def run(self) -> None:
-        pattern_view = RightPane.get_pattern_view(self.window)
+        pattern_view = RightPane.pattern_view(self.window)
         if not pattern_view:
             return
         search_query = pattern_view.substr(sublime.Region(0, pattern_view.size()))
@@ -792,13 +804,13 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
         window = self.view.window()
         if not window:
             return
-        rewrite_view = RightPane.get_rewrite_view(window)
+        rewrite_view = RightPane.rewrite_view(window)
         if rewrite_view:
             sublime.set_timeout(lambda: rewrite_view.close())
-        yaml_rule_view = RightPane.get_yaml_rule_view(window)
+        yaml_rule_view = RightPane.yaml_rule_view(window)
         if yaml_rule_view:
             sublime.set_timeout(lambda: yaml_rule_view.close())
-        pattern_view = RightPane.get_pattern_view(window)
+        pattern_view = RightPane.pattern_view(window)
         if pattern_view:
             sublime.set_timeout(lambda: pattern_view.close())
 
@@ -948,7 +960,7 @@ fix:
 class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
     @override
     def run(self) -> None:
-        yaml_rule_view = RightPane.get_yaml_rule_view(self.window)
+        yaml_rule_view = RightPane.yaml_rule_view(self.window)
         if not yaml_rule_view:
             return
 
@@ -1044,7 +1056,15 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
             self.result_view.run_command('lsp_ast_grep_insert', {"point": 0, "characters": characters})
             self.result_view.set_reference_document(old_reference)
             buttons_html = BUTTONS_TEMPLATE.format(
-                apply=sublime.command_url('chain', {'commands': [['hide_panel', {}]]}),
+                apply=sublime.command_url(
+                    'chain',
+                    {
+                        'commands': [
+                            ['hide_panel', {}],
+                            ['lsp_ast_grep_accept_yaml_rule', {'inline_rules': inline_rules_query}],
+                        ]
+                    },
+                ),
                 discard=sublime.command_url(
                     'chain',
                     {

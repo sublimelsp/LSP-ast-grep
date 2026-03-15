@@ -1,8 +1,9 @@
 from __future__ import annotations
 from pathlib import Path
+from typing import final
+from typing_extensions import override
 from LSP.plugin import ClientConfig, WorkspaceFolder
 from lsp_utils import NpmClientHandler
-import os
 import sublime
 
 
@@ -14,12 +15,14 @@ def plugin_unloaded() -> None:
     LspAstGrep.cleanup()
 
 
+@final
 class LspAstGrep(NpmClientHandler):
-    package_name = __package__
+    package_name = str(__package__)
     server_directory = "server"
-    server_binary_path = os.path.join(server_directory, "node_modules", "@ast-grep", "cli", "ast-grep")
+    server_binary_path = str(Path(server_directory) / "node_modules" / "@ast-grep" / "cli" / "ast-grep")
 
     @classmethod
+    @override
     def can_start(cls, window: sublime.Window, initiating_view: sublime.View,
                   workspace_folders: list[WorkspaceFolder], configuration: ClientConfig) -> str | None:
         if workspace_folders:

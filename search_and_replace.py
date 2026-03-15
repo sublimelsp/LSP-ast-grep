@@ -3,7 +3,6 @@ from __future__ import annotations
 from .ast_grep.cli_client import AstGrepCli
 from .ast_grep.types import Match
 from LSP.plugin.core.types import debounced
-from typing import Any
 from typing import cast
 from typing_extensions import override
 import re

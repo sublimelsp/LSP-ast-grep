@@ -177,6 +177,9 @@ class AstGrepCli:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             )
+            if process.stderr:
+                error_output = process.stderr.read().decode("utf-8")
+                print("LSP-ast-grep (Error):", error_output)
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
             if process.stdout:
@@ -215,6 +218,10 @@ class AstGrepCli:
                 cmd.append('--json=stream') # looks like it is not possivle to use --update-all with --json=stream
             cmd.extend(search_paths)
             process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if process.stderr:
+                error_output = process.stderr.read().decode("utf-8")
+                print("LSP-ast-grep (Error):", error_output)
+                return
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
             if on_match and process.stdout:
@@ -250,18 +257,18 @@ class AstGrepCli:
             cmd = [ast_cli, 'scan', '--json=stream', '--inline-rules', 'id: inline-rule\n' + inline_rules]
             cmd.extend(search_paths)
             process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            AstGrepCli.process = process
-            matches: dict[str, list[Match]] = {}
             if process.stderr:
                 error_output = process.stderr.read().decode("utf-8")
-                print(f"Error content: '{error_output}'")
+                print("LSP-ast-grep (Error):", error_output)
+                return
+            AstGrepCli.process = process
+            matches: dict[str, list[Match]] = {}
 
             if process.stdout:
                 for line in process.stdout:
                     if AstGrepCli.process != process:
                         return
                     match: Match = sublime.decode_value(line.decode('utf-8'))  # pyright: ignore[reportAssignmentType]
-                    print('match')
                     if on_match:
                         on_match(match)
                     matches.setdefault(match['file'], []).append(match)
@@ -701,7 +708,6 @@ class AstGrepSearchHighlightListener(sublime_plugin.ViewEventListener, AstGrepCl
         if self.view.is_dirty():
             return
         view_id = self.view.settings().get("ast-grep.view")
-        print("view_id", view_id)
         if view_id == 'pattern-view':
             change_count = self.view.change_count()
             debounced(lambda: self.highlight_matches(self.view), 300, lambda: self.view.is_valid() and change_count == self.view.change_count())

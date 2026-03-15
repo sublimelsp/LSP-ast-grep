@@ -25,14 +25,19 @@ class LspAstGrep(NpmClientHandler):
 
     @classmethod
     @override
-    def can_start(cls, window: sublime.Window, initiating_view: sublime.View,
-                  workspace_folders: list[WorkspaceFolder], configuration: ClientConfig) -> str | None:
+    def can_start(
+        cls,
+        window: sublime.Window,
+        initiating_view: sublime.View,
+        workspace_folders: list[WorkspaceFolder],
+        configuration: ClientConfig,
+    ) -> str | None:
         if workspace_folders:
             folder = workspace_folders[0]
             config = find_config(folder.path)
             if config:
                 return None
-        return "scanning complete" # a better error message like "lsp not started because sgconfig.yml was not found"
+        return "scanning complete"  # a better error message like "lsp not started because sgconfig.yml was not found"
 
 
 def find_config(start_path: str, config_name: str = "sgconfig.yml") -> Path | None:

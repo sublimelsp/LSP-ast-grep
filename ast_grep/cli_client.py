@@ -179,4 +179,3 @@ class AstGrepCli:
 
         thread = threading.Thread(target=run_replace)
         thread.start()
-

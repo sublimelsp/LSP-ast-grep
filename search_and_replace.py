@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from .ast_grep.cli_client import AstGrepCli
+from .ast_grep.confirm_panel import BUTTONS_TEMPLATE
+from .ast_grep.languages import get_json_schema
+from .ast_grep.languages import get_language
 from .ast_grep.types import Match
 from LSP.plugin.core.types import debounced
 from typing import cast
@@ -8,39 +11,6 @@ from typing_extensions import override
 import re
 import sublime
 import sublime_plugin
-
-BUTTONS_TEMPLATE = """
-<style>
-    html {{
-        background-color: transparent;
-        margin-top: 1.5rem;
-        margin-bottom: 0.5rem;
-    }}
-    a {{
-        line-height: 1.6rem;
-        padding-left: 0.6rem;
-        padding-right: 0.6rem;
-        border-width: 1px;
-        border-style: solid;
-        border-color: #fff4;
-        border-radius: 4px;
-        color: #cccccc;
-        background-color: #3f3f3f;
-        text-decoration: none;
-    }}
-    html.light a {{
-        border-color: #000a;
-        color: white;
-        background-color: #636363;
-    }}
-    a.primary, html.light a.primary {{
-        background-color: color(var(--accent) min-contrast(white 6.0));
-    }}
-</style>
-<body id='lsp-buttons'>
-    <a href='{apply}' class='primary'>Apply</a>&nbsp;
-    <a href='{discard}'>Discard</a>
-</body>"""
 
 
 class RightPane:
@@ -282,7 +252,7 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
         if not folders:
             return
         cwd = folders[0]
-        panel_name = 'ast-grep (ast)'
+        panel_name = 'ast-grep (ast output)'
         file_name = self.view.file_name()
 
         preselect_row = 1
@@ -313,7 +283,7 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
         base_scope = 'DEFAULT'
         if self.view and (syntax := self.view.syntax()):
             base_scope = syntax.scope
-        _, language = scope_to_schema[base_scope] if base_scope in scope_to_schema else scope_to_schema["DEFAULT"]
+        language = get_language(base_scope)
 
         def on_done(ast: str) -> None:
             result_view.run_command(
@@ -402,7 +372,7 @@ class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, Ast
             return
         cwd = folders[0]
 
-        panel_name = 'ast-grep (search and replace)'
+        panel_name = 'ast-grep (rewrite)'
         result_view = self.window.find_output_panel(panel_name)
         if result_view:
             result_view.run_command('lsp_ast_grep_clear_panel')
@@ -547,7 +517,7 @@ class lsp_ast_grep_pattern_command(sublime_plugin.WindowCommand, AstGrepCli):
             return
         cwd = folders[0]
 
-        panel_name = 'ast-grep (search)'
+        panel_name = 'ast-grep (pattern)'
         result_view = self.window.find_output_panel(panel_name)
         if result_view:
             result_view.run_command('lsp_ast_grep_clear_panel')
@@ -705,42 +675,14 @@ class LspAstGrepInsertCommand(sublime_plugin.TextCommand):
         self.view.set_read_only(True)
 
 
-scope_to_schema = {
-    "DEFAULT": ("rule.json", "''"),
-    "source.shell": ("bash_rule.json", "bash"),
-    "source.c": ("c_rule.json", "c"),
-    "source.c++": ("cpp_rule.json", "c++"),
-    "source.cs": ("csharp_rule.json", "csharp"),
-    "source.css": ("css_rule.json", "css"),
-    "source.elixir": ("elixir_rule.json", "elixir"),
-    "source.go": ("go_rule.json", "go"),
-    "source.haskell": ("haskell_rule.json", "haskell"),
-    "text.html.basic": ("html_rule.json", "html"),
-    "source.java": ("java_rule.json", "java"),
-    "source.js": ("javascript_rule.json", "javascript"),
-    "source.jsx": ("javascript_rule.json", "jsx"),
-    "source.json": ("json_rule.json", "json"),
-    "source.Kotlin": ("kotlin_rule.json", "kotlin"),
-    "source.lua": ("lua_rule.json", "lua"),
-    "embedding.php": ("php_rule.json", "php"),
-    "source.python": ("python_rule.json", "python"),
-    "source.ruby": ("ruby_rule.json", "ruby"),
-    "source.rust": ("rust_rule.json", "rust"),
-    "source.scala": ("scala_rule.json", "scala"),
-    "source.swift": ("swift_rule.json", "swift"),
-    "source.tsx": ("tsx_rule.json", "tsx"),
-    "source.ts": ("typescript_rule.json", "typescript"),
-    "source.yaml": ("yaml_rule.json", "yaml"),
-}
-
-
 def get_yaml_content(view: sublime.View | None):
     base_scope = 'DEFAULT'
     tab_size = 4
     if view and (syntax := view.syntax()):
         base_scope = syntax.scope
         tab_size = int(cast(int, view.settings().get('tab_size', 4)))
-    json_schema, language = scope_to_schema[base_scope] if base_scope in scope_to_schema else scope_to_schema['DEFAULT']
+    json_schema = get_json_schema(base_scope)
+    language = language = get_language(base_scope)
     indentation = " " * tab_size
     content = f"""# YAML Rule is more powerful! - https://ast-grep.github.io/guide/rule-config.html#rule
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/{json_schema}
@@ -780,7 +722,7 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
             return
         cwd = folders[0]
 
-        panel_name = 'ast-grep (search and replace)'
+        panel_name = 'ast-grep (advanced)'
         result_view = self.window.find_output_panel(panel_name)
         if result_view:
             result_view.run_command('lsp_ast_grep_clear_panel')

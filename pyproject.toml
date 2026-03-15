@@ -12,6 +12,9 @@ commands = [
     ["ruff", "check"],
 ]
 
+[tool.pyright]
+reportUnknownMemberType = "none"
+
 [tool.ruff]
 exclude = [
     "third_party",

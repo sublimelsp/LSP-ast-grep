@@ -59,6 +59,7 @@ class RightPane:
     def rewrite_view(window: sublime.Window) -> sublime.View | None:
         return next((v for v in window.views() if v.settings().get('ast-grep.view') == 'rewrite-view'), None)
 
+
 class HiglightMatcher(AstGrepCli):
     def highlight_matches(self, view: sublime.View) -> None:
         window = view.window()
@@ -265,8 +266,6 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
 
         self.window.focus_view(pattern_view)
         RightPane.active_window_id = self.window.id()
-
-
 
 
 class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):

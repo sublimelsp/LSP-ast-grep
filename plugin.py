@@ -1,10 +1,12 @@
 from __future__ import annotations
-from LSP.plugin import ClientConfig, WorkspaceFolder
-from lsp_utils import NpmClientHandler
+
 from pathlib import Path
 from typing import final
-from typing_extensions import override
+
 import sublime
+from LSP.plugin import ClientConfig, WorkspaceFolder
+from lsp_utils import NpmClientHandler
+from typing_extensions import override
 
 
 def plugin_loaded() -> None:

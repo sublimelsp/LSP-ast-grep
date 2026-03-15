@@ -1,18 +1,13 @@
 from __future__ import annotations
 
-from .plugin import LspAstGrep
-from functools import partial
+from .ast_grep.cli_client import AstGrepCli
+from .ast_grep.types import Match
 from LSP.plugin.core.types import debounced
 from typing import Any
-from typing import Callable
-from typing import NotRequired
-from typing import TypedDict
 from typing_extensions import override
 import re
 import sublime
 import sublime_plugin
-import subprocess
-import threading
 
 BUTTONS_TEMPLATE = """
 <style>
@@ -63,224 +58,7 @@ class RightPane:
     def rewrite_view(window: sublime.Window) -> sublime.View | None:
         return next((v for v in window.views() if v.settings().get('ast-grep.view') == 'rewrite-view'), None)
 
-
-class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
-    @override
-    def run(self) -> None:
-        active_view = self.window.active_view()
-        self.window.set_layout(
-            {'cells': [[0, 0, 1, 2], [1, 0, 2, 1], [1, 1, 2, 2]], 'cols': [0.0, 0.6, 1.0], 'rows': [0.0, 0.5, 1.0]}
-        )
-        for view in self.window.views():
-            _group, index = self.window.get_view_index(view)
-            self.window.set_view_index(view, 0, index)
-
-        pattern_syntax = 'Packages/LSP-ast-grep/AstGrepPattern.sublime-syntax'
-        pattern_view = RightPane.pattern_view(self.window)
-        if not pattern_view:
-            pattern_view = self.window.new_file()
-            pattern_view.settings().set('ast-grep.view', 'pattern-view')
-            pattern_view.set_syntax_file(pattern_syntax)
-            pattern_view.settings().set('is_widget', True)  # when pasting this prevents auto-setting the sytnax
-            pattern_view.set_name('Pattern')
-            pattern_view.set_scratch(True)
-        self.window.set_view_index(pattern_view, 1, 0)
-
-        yaml_syntax = 'Packages/LSP-ast-grep/AstGrepYaml.sublime-syntax'
-        yaml_rule_view = RightPane.yaml_rule_view(self.window)
-        if not yaml_rule_view:
-            yaml_rule_view = self.window.new_file()
-            yaml_rule_view.settings().set('ast-grep.view', 'yaml-rule-view')
-            yaml_rule_view.set_syntax_file(yaml_syntax)
-            yaml_rule_view.set_name('Advanced')
-            yaml_rule_view.run_command("append", {"characters": get_yaml_content(active_view)})
-            yaml_rule_view.set_scratch(True)
-        self.window.set_view_index(yaml_rule_view, 1, 1)
-
-        rewrite_view = RightPane.rewrite_view(self.window)
-        if not rewrite_view:
-            rewrite_view = self.window.new_file()
-            rewrite_view.settings().set('ast-grep.view', 'rewrite-view')
-            rewrite_view.settings().set('is_widget', True)  # when pasting this prevents auto-setting the sytnax
-            rewrite_view.set_syntax_file(pattern_syntax)
-            rewrite_view.set_name('Rewrite')
-            rewrite_view.set_scratch(True)
-        self.window.set_view_index(rewrite_view, 2, 0)
-
-        self.window.focus_view(pattern_view)
-        RightPane.active_window_id = self.window.id()
-
-
-class AstGrepCli:
-    process: subprocess.Popen[bytes] | None = None
-
-    def ast_tree(self, file_content: str, language: str, on_done: Callable[[str], None] | None = None) -> None:
-        if AstGrepCli.process:
-            AstGrepCli.process.kill()
-            AstGrepCli.process = None
-        folders = sublime.active_window().folders()
-        if not folders:
-            return
-        cwd = folders[0]
-
-        def run_search() -> None:
-            ast_cli = LspAstGrep.binary_path()
-            cmd = [ast_cli, "-p", file_content, "--lang", language, "--debug-query=cst"]
-            process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            AstGrepCli.process = process
-            matches: list[str] = []
-            pattern = r"\((\d+),(\d+)\)-\((\d+),(\d+)\)"
-            if process.stderr:
-                for line in process.stderr:
-                    if "Cannot parse query" in line:
-                        break
-                    # Convert ast-grep's 0-based rows to 1-based coordinates
-                    # Example: "future_import_statement (0,0)-(0,34)" -> "(1,0)-(1,34)"
-                    one_based_row = re.sub(
-                        pattern,
-                        lambda m: f"({int(m.group(1)) + 1},{m.group(2)})-({int(m.group(3)) + 1},{m.group(4)})",
-                        line,
-                    )
-                    matches.append(one_based_row)
-            _ = process.wait()
-            if on_done:
-                sublime.set_timeout(partial(on_done, "".join(matches)), 100)
-
-        thread = threading.Thread(target=run_search)
-        thread.start()
-
-    def pattern_search(
-        self,
-        search_query: str,
-        *,
-        paths: list[str] | None = None,
-        on_match: Callable[[Match], None] | None = None,
-        on_done: Callable[[dict[str, list[Match]]], None] | None = None,
-    ) -> None:
-        if AstGrepCli.process:
-            AstGrepCli.process.kill()
-            AstGrepCli.process = None
-        folders = sublime.active_window().folders()
-        if not folders:
-            return
-        cwd = folders[0]
-        search_paths = paths or folders
-
-        def run_search() -> None:
-            ast_cli = LspAstGrep.binary_path()
-            cmd = [ast_cli, 'run', '--pattern', search_query, '--json=stream', *search_paths]
-            process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            AstGrepCli.process = process
-            matches: dict[str, list[Match]] = {}
-            if process.stdout:
-                for line in process.stdout:
-                    match: Match = sublime.decode_value(line)  # pyright: ignore[reportAssignmentType]
-                    if on_match:
-                        on_match(match)
-                    matches.setdefault(match['file'], []).append(match)
-            exit_code = process.wait()
-            if exit_code != 0 and process.stderr:
-                error_msg = process.stderr.read()
-                raise Exception(f"Process failed with code {exit_code}: {error_msg}")
-            if on_done:
-                sublime.set_timeout(partial(on_done, matches), 100)
-
-        thread = threading.Thread(target=run_search)
-        thread.start()
-
-    def rewrite(
-        self,
-        search_query: str,
-        replace_query: str,
-        paths: list[str] | None = None,
-        on_match: Callable[[Match], None] | None = None,
-        on_done: Callable[[dict[str, list[Match]]], None] | None = None,
-        update_all: bool = False,
-    ) -> None:
-        if AstGrepCli.process:
-            AstGrepCli.process.kill()
-            AstGrepCli.process = None
-        folders = sublime.active_window().folders()
-        if not folders:
-            return
-        cwd = folders[0]
-        search_paths = paths or folders
-
-        def run_replace() -> None:
-            ast_cli = LspAstGrep.binary_path()
-            cmd = [ast_cli, 'run', '--pattern', search_query, '--rewrite', replace_query]
-            if update_all:
-                cmd.append('--update-all')
-            else:
-                cmd.append('--json=stream')  # looks like it is not possivle to use --update-all with --json=stream
-            cmd.extend(search_paths)
-            process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            AstGrepCli.process = process
-            matches: dict[str, list[Match]] = {}
-            if on_match and process.stdout:
-                for line in process.stdout:
-                    if AstGrepCli.process != process:
-                        return
-                    match: Match = sublime.decode_value(line)  # pyright: ignore[reportAssignmentType]
-                    on_match(match)
-                    matches.setdefault(match['file'], []).append(match)
-            exit_code = process.wait()
-            if exit_code != 0 and process.stderr:
-                error_msg = process.stderr.read()
-                raise Exception(f"Process failed with code {exit_code}: {error_msg}")
-            if on_done:
-                sublime.set_timeout(partial(on_done, matches), 100)
-
-        thread = threading.Thread(target=run_replace)
-        thread.start()
-
-    def rewrite_inline_rule(
-        self,
-        inline_rules: str,
-        paths: list[str] | None = None,
-        on_match: Callable[[Match], None] | None = None,
-        on_done: Callable[[dict[str, list[Match]]], None] | None = None,
-        update_all: bool = False
-    ) -> None:
-        if AstGrepCli.process:
-            AstGrepCli.process.kill()
-            AstGrepCli.process = None
-        folders = sublime.active_window().folders()
-        if not folders:
-            return
-        cwd = folders[0]
-        search_paths = paths or folders
-
-        def run_replace() -> None:
-            ast_cli = LspAstGrep.binary_path()
-            cmd = [ast_cli, 'scan', '--inline-rules', 'id: inline-rule\n' + inline_rules]
-            if update_all:
-                cmd.append('--update-all')
-            else:
-                cmd.append('--json=stream')  # looks like it is not possivle to use --update-all with --json=stream
-            cmd.extend(search_paths)
-            process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            AstGrepCli.process = process
-            matches: dict[str, list[Match]] = {}
-
-            if process.stdout:
-                for line in process.stdout:
-                    if AstGrepCli.process != process:
-                        return
-                    match: Match = sublime.decode_value(line)  # pyright: ignore[reportAssignmentType]
-                    if on_match:
-                        on_match(match)
-                    matches.setdefault(match['file'], []).append(match)
-            exit_code = process.wait()
-            if exit_code != 0 and process.stderr:
-                error_msg = process.stderr.read()
-                raise Exception(f"Process failed with code {exit_code}: {error_msg}")
-            if on_done:
-                sublime.set_timeout(partial(on_done, matches), 100)
-
-        thread = threading.Thread(target=run_replace)
-        thread.start()
-
+class HiglightMatcher(AstGrepCli):
     def highlight_matches(self, view: sublime.View) -> None:
         window = view.window()
         if not window:
@@ -441,6 +219,55 @@ class AstGrepCli:
         self.rewrite_inline_rule(search_query, paths=[file_name], on_done=on_done)
 
 
+class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
+    @override
+    def run(self) -> None:
+        active_view = self.window.active_view()
+        self.window.set_layout(
+            {'cells': [[0, 0, 1, 2], [1, 0, 2, 1], [1, 1, 2, 2]], 'cols': [0.0, 0.6, 1.0], 'rows': [0.0, 0.5, 1.0]}
+        )
+        for view in self.window.views():
+            _group, index = self.window.get_view_index(view)
+            self.window.set_view_index(view, 0, index)
+
+        pattern_syntax = 'Packages/LSP-ast-grep/AstGrepPattern.sublime-syntax'
+        pattern_view = RightPane.pattern_view(self.window)
+        if not pattern_view:
+            pattern_view = self.window.new_file()
+            pattern_view.settings().set('ast-grep.view', 'pattern-view')
+            pattern_view.set_syntax_file(pattern_syntax)
+            pattern_view.settings().set('is_widget', True)  # when pasting this prevents auto-setting the sytnax
+            pattern_view.set_name('Pattern')
+            pattern_view.set_scratch(True)
+        self.window.set_view_index(pattern_view, 1, 0)
+
+        yaml_syntax = 'Packages/LSP-ast-grep/AstGrepYaml.sublime-syntax'
+        yaml_rule_view = RightPane.yaml_rule_view(self.window)
+        if not yaml_rule_view:
+            yaml_rule_view = self.window.new_file()
+            yaml_rule_view.settings().set('ast-grep.view', 'yaml-rule-view')
+            yaml_rule_view.set_syntax_file(yaml_syntax)
+            yaml_rule_view.set_name('Advanced')
+            yaml_rule_view.run_command("append", {"characters": get_yaml_content(active_view)})
+            yaml_rule_view.set_scratch(True)
+        self.window.set_view_index(yaml_rule_view, 1, 1)
+
+        rewrite_view = RightPane.rewrite_view(self.window)
+        if not rewrite_view:
+            rewrite_view = self.window.new_file()
+            rewrite_view.settings().set('ast-grep.view', 'rewrite-view')
+            rewrite_view.settings().set('is_widget', True)  # when pasting this prevents auto-setting the sytnax
+            rewrite_view.set_syntax_file(pattern_syntax)
+            rewrite_view.set_name('Rewrite')
+            rewrite_view.set_scratch(True)
+        self.window.set_view_index(rewrite_view, 2, 0)
+
+        self.window.focus_view(pattern_view)
+        RightPane.active_window_id = self.window.id()
+
+
+
+
 class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
     @override
     def is_visible(self) -> bool:
@@ -518,6 +345,8 @@ class AstGrepHighlightTreeNodeccListener(sublime_plugin.EventListener):
             return
         change_count = view.change_count()
         point = get_point(view)
+        if point is None:
+            return
         debounced(
             lambda: self.highlight_node_at_point(view, point),
             300,
@@ -758,7 +587,7 @@ class lsp_ast_grep_pattern_command(sublime_plugin.WindowCommand, AstGrepCli):
         self.pattern_search(search_query, on_match=on_match, on_done=on_done)
 
 
-class AstGrepSearchHighlightListener(sublime_plugin.ViewEventListener, AstGrepCli):
+class AstGrepSearchHighlightListener(sublime_plugin.ViewEventListener, HiglightMatcher):
     @classmethod
     @override
     def is_applicable(cls, settings: sublime.Settings) -> bool:
@@ -826,7 +655,7 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
         RightPane.active_window_id = None
 
 
-class AstGrepSearchOpenListener(sublime_plugin.EventListener, AstGrepCli):
+class AstGrepSearchOpenListener(sublime_plugin.EventListener, HiglightMatcher):
     @classmethod
     def is_applicable(cls, settings: sublime.Settings) -> bool:
         return bool(RightPane.active_window_id)
@@ -845,48 +674,6 @@ class AstGrepSearchOpenListener(sublime_plugin.EventListener, AstGrepCli):
 
     def on_post_save(self, view: sublime.View) -> None:
         self.highlight_matches(view)
-
-
-# https://ast-grep.github.io/guide/tools/json.html#match-object-type
-class Match(TypedDict):
-    text: str
-    range: RangeInfo
-    file: str  # relative path to the file
-    # the surrounding lines of the match.
-    # It can be more than one line if the match spans multiple ones.
-    lines: str
-    # optional replacement if the match has a replacement
-    replacement: NotRequired[str]
-    replacementOffsets: NotRequired[ByteOffset]
-    metaVariables: MetaVariables  # optional metavars generated in the match
-
-
-class RangeInfo(TypedDict):
-    byteOffset: ByteOffset
-    start: Position
-    end: Position
-
-
-# // UTF-8 encoded byte offset
-class ByteOffset(TypedDict):
-    start: int
-    end: int
-
-
-class Position(TypedDict):
-    line: int  # zero-based line number
-    column: int  # zero-based column number
-
-
-class MetaVariables(TypedDict):
-    single: dict[str, MetaVar]
-    multi: dict[str, list[MetaVar]]
-    transformed: dict[str, str]
-
-
-class MetaVar(TypedDict):
-    text: str
-    range: RangeInfo
 
 
 class LspAstGrepClearPanelCommand(sublime_plugin.TextCommand):

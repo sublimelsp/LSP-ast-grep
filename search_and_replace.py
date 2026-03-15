@@ -177,8 +177,6 @@ class AstGrepCli:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             )
-            if process.stderr and (error_output := process.stderr.read().decode("utf-8")):
-                raise Exception("LSP-ast-grep (Error):" + error_output)
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
             if process.stdout:
@@ -187,7 +185,10 @@ class AstGrepCli:
                     if on_match:
                         on_match(match)
                     matches.setdefault(match['file'], []).append(match)
-            _ = process.wait()
+            exit_code = process.wait()
+            if exit_code != 0 and process.stderr:
+                error_msg = process.stderr.read().decode("utf-8")
+                raise Exception(f"Process failed with code {exit_code}: {error_msg}")
             if on_done:
                 sublime.set_timeout(partial(on_done,matches), 100)
 
@@ -217,8 +218,6 @@ class AstGrepCli:
                 cmd.append('--json=stream') # looks like it is not possivle to use --update-all with --json=stream
             cmd.extend(search_paths)
             process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if process.stderr and (error_output := process.stderr.read().decode("utf-8")):
-                raise Exception("LSP-ast-grep (Error):" + error_output)
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
             if on_match and process.stdout:
@@ -228,7 +227,10 @@ class AstGrepCli:
                     match: Match = sublime.decode_value(line.decode('utf-8'))  # pyright: ignore[reportAssignmentType]
                     on_match(match)
                     matches.setdefault(match['file'], []).append(match)
-            _ = process.wait()
+            exit_code = process.wait()
+            if exit_code != 0 and process.stderr:
+                error_msg = process.stderr.read().decode("utf-8")
+                raise Exception(f"Process failed with code {exit_code}: {error_msg}")
             if on_done:
                 sublime.set_timeout(partial(on_done,matches), 100)
 
@@ -254,8 +256,6 @@ class AstGrepCli:
             cmd = [ast_cli, 'scan', '--json=stream', '--inline-rules', 'id: inline-rule\n' + inline_rules]
             cmd.extend(search_paths)
             process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if process.stderr and (error_output := process.stderr.read().decode("utf-8")):
-                raise Exception("LSP-ast-grep (Error):" + error_output)
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
 
@@ -267,7 +267,10 @@ class AstGrepCli:
                     if on_match:
                         on_match(match)
                     matches.setdefault(match['file'], []).append(match)
-            _ = process.wait()
+            exit_code = process.wait()
+            if exit_code != 0 and process.stderr:
+                error_msg = process.stderr.read().decode("utf-8")
+                raise Exception(f"Process failed with code {exit_code}: {error_msg}")
             if on_done:
                 sublime.set_timeout(partial(on_done,matches), 100)
 

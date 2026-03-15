@@ -8,7 +8,19 @@ version: 2
 
 contexts:
   main:
-    - match: (\$+)[A-Z1-9_]+
-      scope: variable.meta
+    - match: (\$_)[A-Z1-9_]+
+      scope: variable.non-capturing.meta
+      captures:
+        1: punctuation.definition.variable
+    - match: (\$)[A-Z1-9_]+
+      scope: variable.single.meta
+      captures:
+        1: punctuation.definition.variable
+    - match: (\$\$)[A-Z1-9_]+
+      scope: variable.unnamed.meta
+      captures:
+        1: punctuation.definition.variable
+    - match: (\$\$\$)[A-Z1-9_]+
+      scope: variable.multi.meta
       captures:
         1: punctuation.definition.variable

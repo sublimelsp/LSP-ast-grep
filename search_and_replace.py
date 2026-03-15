@@ -4,6 +4,7 @@ from .ast_grep.cli_client import AstGrepCli
 from .ast_grep.types import Match
 from LSP.plugin.core.types import debounced
 from typing import Any
+from typing import cast
 from typing_extensions import override
 import re
 import sublime
@@ -516,7 +517,8 @@ class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, Ast
 
 
 class lsp_ast_grep_accept_replace_command(sublime_plugin.WindowCommand, AstGrepCli):
-    def run(self, search_query: str, replace_query: str) -> None:
+    @override
+    def run(self, search_query: str, replace_query: str) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         def on_done(_matches: dict[str, list[Match]]) -> None:
             self.window.status_message("LSP-ast-grep: Edits applied.")
 
@@ -524,7 +526,8 @@ class lsp_ast_grep_accept_replace_command(sublime_plugin.WindowCommand, AstGrepC
 
 
 class lsp_ast_grep_accept_yaml_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
-    def run(self, inline_rules: str) -> None:
+    @override
+    def run(self, inline_rules: str) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         def on_done(_matches: dict[str, list[Match]]) -> None:
             self.window.status_message("LSP-ast-grep: Edits applied.")
 
@@ -532,6 +535,7 @@ class lsp_ast_grep_accept_yaml_rule_command(sublime_plugin.WindowCommand, AstGre
 
 
 class lsp_ast_grep_pattern_command(sublime_plugin.WindowCommand, AstGrepCli):
+    @override
     def run(self) -> None:
         pattern_view = RightPane.pattern_view(self.window)
         if not pattern_view:
@@ -628,7 +632,7 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
     def is_applicable(cls, settings: sublime.Settings) -> bool:
         return settings.get('ast-grep.view') in ['pattern-view', 'rewrite-view', 'yaml-rule-view']
 
-    def on_query_context(self, key: str, operator: int, operand: Any, match_all: bool) -> bool | None:
+    def on_query_context(self, key: str, operator: int, operand: object, _match_all: bool) -> bool | None:
         # You can filter key bindings by the precense of a provider,
         if key == "ast-grep.view" and operator == sublime.QueryOperator.EQUAL and isinstance(operand, str):
             return self.view.settings().get('ast-grep.view') == operand
@@ -666,7 +670,7 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
 
 class AstGrepSearchOpenListener(sublime_plugin.EventListener, HiglightMatcher):
     @classmethod
-    def is_applicable(cls, settings: sublime.Settings) -> bool:
+    def is_applicable(cls, _settings: sublime.Settings) -> bool:
         return bool(RightPane.active_window_id)
 
     def on_activated(self, view: sublime.View) -> None:
@@ -737,9 +741,9 @@ def get_yaml_content(view: sublime.View | None):
     tab_size = 4
     if view and (syntax := view.syntax()):
         base_scope = syntax.scope
-        tab_size = view.settings().get('tab_size', 4)
+        tab_size = int(cast(int, view.settings().get('tab_size', 4)))
     json_schema, language = scope_to_schema[base_scope] if base_scope in scope_to_schema else scope_to_schema['DEFAULT']
-    indentation = str(" " * tab_size)
+    indentation = " " * tab_size
     content = f"""# YAML Rule is more powerful! - https://ast-grep.github.io/guide/rule-config.html#rule
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/{json_schema}
 language: {language}

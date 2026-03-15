@@ -358,7 +358,10 @@ class AstGrepHighlightTreeNodeccListener(sublime_plugin.EventListener):
         pattern = r"\((\d+),(\d+)\)-\((\d+),(\d+)\)"
         match = re.compile(pattern).search(line_text)
         file_name = view.substr(view.line(0)).split(":")[0]
-        source_view = view.window().find_open_file(file_name)
+        window = view.window()
+        if not window:
+            return
+        source_view = window.find_open_file(file_name)
         if not source_view:
             return
         if match:
@@ -376,6 +379,10 @@ class AstGrepHighlightTreeNodeccListener(sublime_plugin.EventListener):
 
 
 class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, AstGrepCli):
+    def __init__(self, window: sublime.Window):
+        super().__init__(window)
+        self.phantom_set: sublime.PhantomSet
+
     @override
     def run(self) -> None:
         pattern_view = RightPane.pattern_view(self.window)
@@ -747,6 +754,10 @@ fix:
 
 
 class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
+    def __init__(self, window: sublime.Window):
+        super().__init__(window)
+        self.phantom_set: sublime.PhantomSet
+
     @override
     def run(self) -> None:
         yaml_rule_view = RightPane.yaml_rule_view(self.window)

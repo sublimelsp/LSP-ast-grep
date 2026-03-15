@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-import re
-import subprocess
-import threading
+from .plugin import LspAstGrep
 from functools import partial
-from typing import Any, Callable, NotRequired, TypedDict
-
+from LSP.plugin.core.types import debounced
+from typing import Any
+from typing import Callable
+from typing import NotRequired
+from typing import TypedDict
+from typing_extensions import override
+import re
 import sublime
 import sublime_plugin
-from LSP.plugin.core.types import debounced
-from typing_extensions import override
-
-from .plugin import LspAstGrep
+import subprocess
+import threading
 
 BUTTONS_TEMPLATE = """
 <style>

@@ -443,7 +443,7 @@ class lsp_ast_grep_pattern_command(sublime_plugin.WindowCommand, AstGrepCli):
         self.pattern_search(search_query, on_match=on_match, on_done=on_done)
 
 
-class AstGrepSearchHighlightListener(sublime_plugin.ViewEventListener, HiglightMatcher):
+class AstGrepHighlightMatchesListener(sublime_plugin.ViewEventListener, HiglightMatcher):
     @classmethod
     @override
     def is_applicable(cls, settings: sublime.Settings) -> bool:
@@ -539,7 +539,9 @@ class LspAstGrepClearPanelCommand(sublime_plugin.TextCommand):
 
     @override
     def run(self, edit: sublime.Edit) -> None:
+        self.view.set_read_only(False)
         self.view.erase(edit, sublime.Region(0, self.view.size()))
+        self.view.set_read_only(True)
 
 
 class LspAstGrepInsertCommand(sublime_plugin.TextCommand):

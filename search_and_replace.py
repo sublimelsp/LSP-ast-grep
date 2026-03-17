@@ -100,7 +100,14 @@ class HiglightMatcher(AstGrepCli):
         if mode == 'pattern':
             self.pattern_search(search_query, paths=[file_name], on_done=on_done)
             return
-        self.rewrite_inline_rule(search_query, paths=[file_name], on_done=on_done)
+
+        def on_error(message: str) -> None:
+            caused_part = message.split("Caused by")[1].strip()
+            clean_lines = [line.strip(" ╰▻") for line in caused_part.splitlines()]
+            result = "<br>".join(clean_lines)
+            query_view.show_popup(f"<pre class='error'>{result}</pre>")
+
+        self.rewrite_inline_rule(search_query, paths=[file_name], on_done=on_done, on_error=on_error)
 
 
 class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):

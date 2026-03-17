@@ -55,6 +55,7 @@ class AstGrepCli:
         paths: list[str] | None = None,
         on_match: Callable[[Match], None] | None = None,
         on_done: Callable[[dict[str, list[Match]]], None] | None = None,
+        on_error: Callable[[str], None] | None = None,
     ) -> None:
         if AstGrepCli.process:
             AstGrepCli.process.kill()
@@ -80,6 +81,9 @@ class AstGrepCli:
             exit_code = process.wait()
             if exit_code != 0 and process.stderr:
                 error_msg = process.stderr.read()
+                if on_error:
+                    on_error(error_msg.strip())
+                    return
                 raise Exception(f"Process failed with code {exit_code}: {error_msg}")
             if on_done:
                 sublime.set_timeout(partial(on_done, matches), 100)
@@ -94,6 +98,7 @@ class AstGrepCli:
         paths: list[str] | None = None,
         on_match: Callable[[Match], None] | None = None,
         on_done: Callable[[dict[str, list[Match]]], None] | None = None,
+        on_error: Callable[[str], None] | None = None,
         update_all: bool = False,
     ) -> None:
         if AstGrepCli.process:
@@ -126,6 +131,9 @@ class AstGrepCli:
             exit_code = process.wait()
             if exit_code != 0 and process.stderr:
                 error_msg = process.stderr.read()
+                if on_error:
+                    on_error(error_msg.strip())
+                    return
                 raise Exception(f"Process failed with code {exit_code}: {error_msg}")
             if on_done:
                 sublime.set_timeout(partial(on_done, matches), 100)
@@ -139,6 +147,7 @@ class AstGrepCli:
         paths: list[str] | None = None,
         on_match: Callable[[Match], None] | None = None,
         on_done: Callable[[dict[str, list[Match]]], None] | None = None,
+        on_error: Callable[[str], None] | None = None,
         update_all: bool = False,
     ) -> None:
         if AstGrepCli.process:
@@ -173,6 +182,9 @@ class AstGrepCli:
             exit_code = process.wait()
             if exit_code != 0 and process.stderr:
                 error_msg = process.stderr.read()
+                if on_error:
+                    on_error(error_msg.strip())
+                    return
                 raise Exception(f"Process failed with code {exit_code}: {error_msg}")
             if on_done:
                 sublime.set_timeout(partial(on_done, matches), 100)

@@ -8,6 +8,7 @@ from .ast_grep.types import Match
 from .right_pane import RightPane
 from LSP.plugin.core.types import debounced
 from typing import cast
+from typing import Literal
 from typing_extensions import override
 import re
 import sublime
@@ -15,14 +16,14 @@ import sublime_plugin
 
 
 class HiglightMatcher(AstGrepCli):
-    def highlight_matches(self, view: sublime.View) -> None:
+    def highlight_matches(self, view: sublime.View, mode: Literal["pattern", "advanced"]) -> None:
         window = view.window()
         if not window:
             return
-        pattern_view = RightPane.pattern_view(window)
-        if not pattern_view:
+        query_view = RightPane.pattern_view(window) if mode == 'pattern' else RightPane.yaml_rule_view(window)
+        if not query_view:
             return
-        search_query = pattern_view.substr(sublime.Region(0, pattern_view.size()))
+        search_query = query_view.substr(sublime.Region(0, query_view.size()))
         active_view = window.active_view_in_group(0)
         if active_view is None:
             return
@@ -91,87 +92,9 @@ class HiglightMatcher(AstGrepCli):
                 )
             active_view.settings().set('ast-grep-var-key', erase_keys)
 
-        self.pattern_search(search_query, paths=[file_name], on_done=on_done)
-
-    def highlight_matches_yaml_rule(self, view: sublime.View) -> None:
-        window = view.window()
-        if not window:
+        if mode == 'pattern':
+            self.pattern_search(search_query, paths=[file_name], on_done=on_done)
             return
-        yaml_rule_view = RightPane.yaml_rule_view(window)
-        if not yaml_rule_view:
-            return
-
-        start = yaml_rule_view.find("^language:", 0)
-        end = yaml_rule_view.find("^fix:", 0)
-        search_query = yaml_rule_view.substr(sublime.Region(start.begin() or 0, end.begin() or yaml_rule_view.size()))
-        active_view = window.active_view_in_group(0)
-        if active_view is None:
-            return
-        file_name = active_view.file_name()
-        if file_name is None:
-            return
-
-        def on_done(matches: dict[str, list[Match]]) -> None:
-            file_matches = matches.get(file_name) or []
-            for key in cast(list[str], active_view.settings().get('ast-grep-var-key', [])):
-                active_view.erase_regions(key)
-            match_regions: list[sublime.Region] = []
-            single_regions: dict[str, list[sublime.Region]] = {}
-            multi_regions: dict[str, list[sublime.Region]] = {}
-            for match in file_matches:
-                start_point = active_view.text_point(match["range"]["start"]["line"], match["range"]["start"]["column"])
-                end_point = active_view.text_point(match["range"]["end"]["line"], match["range"]["end"]["column"])
-                match_regions.append(sublime.Region(start_point, end_point))
-                for var_name, meta_var in match.get("metaVariables", {}).get("single", {}).items():
-                    start_point = active_view.text_point(
-                        meta_var["range"]["start"]["line"], meta_var["range"]["start"]["column"]
-                    )
-                    end_point = active_view.text_point(
-                        meta_var["range"]["end"]["line"], meta_var["range"]["end"]["column"]
-                    )
-                    single_regions.setdefault(var_name, []).append(sublime.Region(start_point, end_point))
-                for var_name, meta_vars in match.get("metaVariables", {}).get("multi", {}).items():
-                    for meta_var in meta_vars:
-                        start_point = active_view.text_point(
-                            meta_var["range"]["start"]["line"], meta_var["range"]["start"]["column"]
-                        )
-                        end_point = active_view.text_point(
-                            meta_var["range"]["end"]["line"], meta_var["range"]["end"]["column"]
-                        )
-                        multi_regions.setdefault(var_name, []).append(sublime.Region(start_point, end_point))
-            erase_keys = ["lsp-ast-grep.match-line"]
-            active_view.add_regions(
-                "lsp-ast-grep.match-line",
-                match_regions,
-                "region.bluish",
-                flags=sublime.RegionFlags.DRAW_NO_FILL | sublime.RegionFlags.NO_UNDO,
-            )
-            for key in single_regions:
-                regions = single_regions[key]
-                erase_keys.append(f"lsp-ast-grep.match-single.{key}")
-                active_view.add_regions(
-                    f"lsp-ast-grep.match-single.{key}",
-                    regions,
-                    f"region.bluish lsp-ast-grep.match-single.{key}",
-                    flags=sublime.RegionFlags.DRAW_NO_FILL
-                    | sublime.RegionFlags.DRAW_STIPPLED_UNDERLINE
-                    | sublime.RegionFlags.DRAW_NO_OUTLINE
-                    | sublime.RegionFlags.NO_UNDO,
-                )
-            for key in multi_regions:
-                regions = multi_regions[key]
-                erase_keys.append(f"lsp-ast-grep.match-multi.{key}")
-                active_view.add_regions(
-                    f"lsp-ast-grep.match-multi.{key}",
-                    regions,
-                    f"region.bluish lsp-ast-grep.match-multi.{key}",
-                    flags=sublime.RegionFlags.DRAW_NO_FILL
-                    | sublime.RegionFlags.DRAW_STIPPLED_UNDERLINE
-                    | sublime.RegionFlags.DRAW_NO_OUTLINE
-                    | sublime.RegionFlags.NO_UNDO,
-                )
-            active_view.settings().set("ast-grep-var-key", erase_keys)
-
         self.rewrite_inline_rule(search_query, paths=[file_name], on_done=on_done)
 
 
@@ -453,20 +376,15 @@ class AstGrepHighlightMatchesListener(sublime_plugin.ViewEventListener, Higlight
         if self.view.is_dirty():
             return
         view_id = self.view.settings().get("ast-grep.view")
-        if view_id == 'pattern-view':
-            change_count = self.view.change_count()
-            debounced(
-                lambda: self.highlight_matches(self.view),
-                300,
-                lambda: self.view.is_valid() and change_count == self.view.change_count(),
-            )
+        mode = 'pattern'
         if view_id == "yaml-rule-view":
-            change_count = self.view.change_count()
-            debounced(
-                lambda: self.highlight_matches_yaml_rule(self.view),
-                300,
-                lambda: self.view.is_valid() and change_count == self.view.change_count(),
-            )
+            mode = "advanced"
+        change_count = self.view.change_count()
+        debounced(
+            lambda: self.highlight_matches(self.view, mode),
+            300,
+            lambda: self.view.is_valid() and change_count == self.view.change_count(),
+        )
 
 
 class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstGrepCli):

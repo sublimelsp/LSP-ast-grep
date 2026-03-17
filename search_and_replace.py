@@ -16,10 +16,15 @@ import sublime_plugin
 
 
 class HiglightMatcher(AstGrepCli):
-    def highlight_matches(self, view: sublime.View, mode: Literal["pattern", "advanced"]) -> None:
+    def highlight_matches(self, view: sublime.View) -> None:
         window = view.window()
         if not window:
             return
+        mode: Literal["pattern", "advanced"] = 'pattern'
+        view_id = view.settings().get("ast-grep.view")
+        mode = 'pattern'
+        if view_id == "yaml-rule-view":
+            mode = "advanced"
         query_view = RightPane.pattern_view(window) if mode == 'pattern' else RightPane.yaml_rule_view(window)
         if not query_view:
             return
@@ -375,13 +380,9 @@ class AstGrepHighlightMatchesListener(sublime_plugin.ViewEventListener, Higlight
     def on_modified(self) -> None:
         if self.view.is_dirty():
             return
-        view_id = self.view.settings().get("ast-grep.view")
-        mode = 'pattern'
-        if view_id == "yaml-rule-view":
-            mode = "advanced"
         change_count = self.view.change_count()
         debounced(
-            lambda: self.highlight_matches(self.view, mode),
+            lambda: self.highlight_matches(self.view),
             300,
             lambda: self.view.is_valid() and change_count == self.view.change_count(),
         )

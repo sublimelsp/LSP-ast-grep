@@ -114,7 +114,6 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
     @override
     def run(self) -> None:
         RightPane.active_window_id = self.window.id()
-        print('ovde', RightPane.active_window_id)
         active_view = self.window.active_view()
         self.window.set_layout(
             {'cells': [[0, 0, 1, 2], [1, 0, 2, 1], [1, 1, 2, 2]], 'cols': [0.0, 0.6, 1.0], 'rows': [0.0, 0.5, 1.0]}

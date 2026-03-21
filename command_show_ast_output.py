@@ -14,7 +14,6 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
     @override
     def is_visible(self) -> bool:
         window = self.view.window()
-        print('bool(window and window.id() == RightPane.active_window_id)', bool(window and window.id() == RightPane.active_window_id), window.id(), RightPane.active_window_id)
         return bool(window and window.id() == RightPane.active_window_id)
 
     @override
@@ -73,29 +72,29 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
         self.ast_tree(content, language, on_done)
 
 
-class AstGrepHighlightTreeNodeListener(sublime_plugin.ViewEventListener):
-    def on_hover(self, point: int, hover_zone: sublime.HoverZone):
+class AstGrepHighlightTreeNodeListener(sublime_plugin.EventListener):
+    def on_hover(self, view: sublime.View, point: int, hover_zone: sublime.HoverZone):
         if RightPane.active_window_id is None:
             return
-        if self.view.settings().get("ast-grep.view") != "ast-grep-ast-output-view":
+        if view.settings().get("ast-grep.view") != "ast-grep-ast-output-view":
             return
         if hover_zone != sublime.HoverZone.TEXT:
             return
-        self.highlight_node_at_point(self.view, point)
+        self.highlight_node_at_point(view, point)
 
-    def on_selection_modified(self) -> None:
+    def on_selection_modified(self, view: sublime.View) -> None:
         if RightPane.active_window_id is None:
             return
-        if self.view.settings().get("ast-grep.view") != "ast-grep-ast-output-view":
+        if view.settings().get("ast-grep.view") != "ast-grep-ast-output-view":
             return
-        change_count = self.view.change_count()
-        point = get_point(self.view)
+        change_count = view.change_count()
+        point = get_point(view)
         if point is None:
             return
         debounced(
-            lambda: self.highlight_node_at_point(self.view, point),
+            lambda: self.highlight_node_at_point(view, point),
             300,
-            lambda: change_count == self.view.change_count(),
+            lambda: change_count == view.change_count(),
         )
 
     def highlight_node_at_point(self, view: sublime.View, point: int):

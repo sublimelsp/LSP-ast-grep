@@ -4,8 +4,8 @@ from .ast_grep.cli_client import AstGrepCli
 from .ast_grep.confirm_panel import BUTTONS_TEMPLATE
 from .ast_grep.languages import get_json_schema
 from .ast_grep.languages import get_language
+from .ast_grep.right_pane import RightPane
 from .ast_grep.types import Match
-from .right_pane import RightPane
 from LSP.plugin.core.types import debounced
 from typing import cast
 from typing import Literal
@@ -102,7 +102,7 @@ class HiglightMatcher(AstGrepCli):
             return
 
         def on_error(message: str) -> None:
-            caused_part = message.split("Caused by")[1].strip()
+            caused_part = message.split("Caused by")[1].strip() if "Caused by" in message else message
             clean_lines = [line.strip(" ╰▻") for line in caused_part.splitlines()]
             result = "<br>".join(clean_lines)
             query_view.show_popup(f"<pre class='error'>{result}</pre>")
@@ -113,6 +113,8 @@ class HiglightMatcher(AstGrepCli):
 class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
     @override
     def run(self) -> None:
+        RightPane.active_window_id = self.window.id()
+        print('ovde', RightPane.active_window_id)
         active_view = self.window.active_view()
         self.window.set_layout(
             {'cells': [[0, 0, 1, 2], [1, 0, 2, 1], [1, 1, 2, 2]], 'cols': [0.0, 0.6, 1.0], 'rows': [0.0, 0.5, 1.0]}
@@ -154,7 +156,6 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
         self.window.set_view_index(rewrite_view, 2, 0)
 
         self.window.focus_view(pattern_view)
-        RightPane.active_window_id = self.window.id()
 
 
 class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, AstGrepCli):

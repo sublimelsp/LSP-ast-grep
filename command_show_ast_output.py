@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .ast_grep.cli_client import AstGrepCli
 from .ast_grep.languages import get_language
-from .right_pane import RightPane
+from .ast_grep.right_pane import RightPane
 from LSP.plugin.core.types import debounced
 from typing_extensions import override
 import re
@@ -14,6 +14,7 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
     @override
     def is_visible(self) -> bool:
         window = self.view.window()
+        print('bool(window and window.id() == RightPane.active_window_id)', bool(window and window.id() == RightPane.active_window_id), window.id(), RightPane.active_window_id)
         return bool(window and window.id() == RightPane.active_window_id)
 
     @override

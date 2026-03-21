@@ -24,7 +24,7 @@ class AstGrepCli:
 
         def run_search() -> None:
             ast_cli = LspAstGrep.binary_path()
-            cmd = [ast_cli, "-p", file_content, "--lang", language, "--debug-query=cst"]
+            cmd = [ast_cli, "-p", file_content, "--lang", language, "--debug-query=cst", '--threads', '1']
             process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             AstGrepCli.process = process
             matches: list[str] = []
@@ -68,7 +68,7 @@ class AstGrepCli:
 
         def run_search() -> None:
             ast_cli = LspAstGrep.binary_path()
-            cmd = [ast_cli, 'run', '--pattern', search_query, '--json=stream', *search_paths]
+            cmd = [ast_cli, 'run', '--pattern', search_query, '--json=stream', '--threads', '1', *search_paths]
             process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
@@ -112,7 +112,7 @@ class AstGrepCli:
 
         def run_replace() -> None:
             ast_cli = LspAstGrep.binary_path()
-            cmd = [ast_cli, 'run', '--pattern', search_query, '--rewrite', replace_query]
+            cmd = [ast_cli, 'run', '--threads', '1', '--pattern', search_query, '--rewrite', replace_query]
             if update_all:
                 cmd.append('--update-all')
             else:
@@ -161,7 +161,7 @@ class AstGrepCli:
 
         def run_replace() -> None:
             ast_cli = LspAstGrep.binary_path()
-            cmd = [ast_cli, 'scan', '--inline-rules', 'id: inline-rule\n' + inline_rules]
+            cmd = [ast_cli, 'scan', '--threads', '1', '--inline-rules', 'id: inline-rule\n' + inline_rules]
             if update_all:
                 cmd.append('--update-all')
             else:

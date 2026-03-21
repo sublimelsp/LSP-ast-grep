@@ -442,6 +442,10 @@ class AstGrepSearchOpenListener(sublime_plugin.EventListener, HiglightMatcher):
     def is_applicable(cls, _settings: sublime.Settings) -> bool:
         return bool(RightPane.active_window_id)
 
+    def on_exit(self) -> None:
+        if AstGrepCli.process is not None:
+            AstGrepCli.process.kill()
+
     def on_activated(self, view: sublime.View) -> None:
         self.highlight_matches(view)
 

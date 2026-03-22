@@ -495,8 +495,7 @@ def get_yaml_content(view: sublime.View | None):
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/{json_schema}
 language: {language}
 rule:
-{indentation}any:
-{indentation}{indentation}- pattern: TYPE_HERE
+{indentation}pattern: TYPE_HERE
 # fix:
 # {indentation}logger.log($A)
 # files:

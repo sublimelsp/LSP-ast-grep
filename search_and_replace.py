@@ -496,10 +496,13 @@ def get_yaml_content(view: sublime.View | None):
 language: {language}
 rule:
 {indentation}any:
-{indentation}{indentation}- pattern: console.log($A)
-{indentation}{indentation}- pattern: console.debug($A)
-fix:
-{indentation}logger.log($A)
+{indentation}{indentation}- pattern: TYPE_HERE
+# fix:
+# {indentation}logger.log($A)
+# files:
+#     - src/**/*
+# ignores:
+#     - build/**/*
 """
     return content
 
@@ -529,6 +532,7 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
             return
         cwd = folders[0]
 
+        has_fix_specified = bool(re.search(r"^fix:", inline_rules_query, re.M))
         panel_name = 'ast-grep (advanced)'
         result_view = self.window.find_output_panel(panel_name)
         if result_view:
@@ -556,16 +560,16 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
         def on_match(match: Match) -> None:
             nonlocal old_reference
             nonlocal last_file_name
-            if 'replacement' not in match:
-                print('LSP-ast-grep: "replacement" key is missing in match dict. Skipping.')
-                return
             result_view.set_read_only(False)
-            if not result_view.size():
+            new_lines_at_end = "\n\n" if has_fix_specified else '\n'
+            if not result_view.size() and has_fix_specified:
                 # add one extra new line, when the view is clear for the phantom button
                 old_reference = '\n'
                 result_view.run_command("append", {"characters": '\n', 'scroll_to_end': False})
             if last_file_name != match['file']:
                 new_text = match['file'] + ':\n'
+                if last_file_name:
+                    new_text = '\n' + new_text
                 old_reference += new_text
                 result_view.run_command("append", {"characters": new_text, 'scroll_to_end': False})
                 last_file_name = match['file']
@@ -575,13 +579,13 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
                     match['range']['start']['column'] + 1,
                     re.sub(r'\s+', ' ', match['text'].replace('\n', '')),
                 )
-                + "\n\n"
+                + new_lines_at_end
             )
             line = (
                 " {:>4}:{:<4} {}".format(
-                    match['range']['start']['line'] + 1, match['range']['start']['column'] + 1, match['replacement']
+                    match['range']['start']['line'] + 1, match['range']['start']['column'] + 1, match.get('replacement') or match['text']
                 )
-                + "\n\n"
+                + new_lines_at_end
             )
 
             result_view.run_command("append", {"characters": line, 'scroll_to_end': False})
@@ -603,32 +607,33 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
             sublime.set_timeout(toggle_diff, 0)
             file_count = len(matches)
             total_changes = sum(len(value) for value in matches.values())
-            characters = f"Apply {total_changes} changes across {file_count} files?\n"
-            old_reference = characters + old_reference
-            result_view.run_command('lsp_ast_grep_insert', {"point": 0, "characters": characters})
-            result_view.set_reference_document(old_reference)
-            buttons_html = BUTTONS_TEMPLATE.format(
-                apply=sublime.command_url(
-                    'chain',
-                    {
-                        'commands': [
-                            ['hide_panel', {}],
-                            ['lsp_ast_grep_accept_yaml_rule', {'inline_rules': inline_rules_query}],
-                        ]
-                    },
-                ),
-                discard=sublime.command_url(
-                    'chain',
-                    {
-                        'commands': [
-                            ['hide_panel', {}],
-                        ]
-                    },
-                ),
-            )
-            self.phantom_set.update(
-                [sublime.Phantom(sublime.Region(-1, -1), buttons_html, sublime.PhantomLayout.BLOCK)]
-            )
+            if has_fix_specified:
+                characters = f"Apply {total_changes} changes across {file_count} files?\n"
+                old_reference = characters + old_reference
+                result_view.run_command('lsp_ast_grep_insert', {"point": 0, "characters": characters})
+                result_view.set_reference_document(old_reference)
+                buttons_html = BUTTONS_TEMPLATE.format(
+                    apply=sublime.command_url(
+                        'chain',
+                        {
+                            'commands': [
+                                ['hide_panel', {}],
+                                ['lsp_ast_grep_accept_yaml_rule', {'inline_rules': inline_rules_query}],
+                            ]
+                        },
+                    ),
+                    discard=sublime.command_url(
+                        'chain',
+                        {
+                            'commands': [
+                                ['hide_panel', {}],
+                            ]
+                        },
+                    ),
+                )
+                self.phantom_set.update(
+                    [sublime.Phantom(sublime.Region(-1, -1), buttons_html, sublime.PhantomLayout.BLOCK)]
+                )
 
         result_view.set_read_only(False)
         result_view.run_command('lsp_ast_grep_clear_panel')

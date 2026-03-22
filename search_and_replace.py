@@ -38,8 +38,6 @@ class HiglightMatcher(AstGrepCli):
 
         def on_done(matches: dict[str, list[Match]]) -> None:
             file_matches = matches.get(file_name) or []
-            for key in cast(list[str], active_view.settings().get('ast-grep-var-key', [])):
-                active_view.erase_regions(key)
             match_regions: list[sublime.Region] = []
             single_regions: dict[str, list[sublime.Region]] = {}
             multi_regions: dict[str, list[sublime.Region]] = {}
@@ -96,6 +94,9 @@ class HiglightMatcher(AstGrepCli):
                     | sublime.RegionFlags.NO_UNDO,
                 )
             active_view.settings().set('ast-grep-var-key', erase_keys)
+
+        for key in cast(list[str], active_view.settings().get('ast-grep-var-key', [])):
+                active_view.erase_regions(key)
 
         if mode == 'pattern':
             self.pattern_search(search_query, paths=[file_name], on_done=on_done)

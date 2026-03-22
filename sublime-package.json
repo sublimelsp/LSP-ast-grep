@@ -12,7 +12,13 @@
               "properties": {
                 "settings": {
                   "additionalProperties": false,
-                  "properties": {}
+                  "properties": {
+                      "astGrep.configurationPath": {
+                        "default": "sgconfig.yml",
+                        "markdownDescription": "Relative path to the ast-grep configuration file.",
+                        "type": "string"
+                      }
+                    }
                 }
               }
             }

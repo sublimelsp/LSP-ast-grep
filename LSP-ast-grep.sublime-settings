@@ -2,5 +2,8 @@
     "command": ["${server_path}", "lsp"],
     // https://ast-grep.github.io/reference/languages.html#list-of-languages-with-built-in-support
     //          Bash           C, C++                                                             C#         CSS         Elixir         GO                       Haskell         HCL         HTMl             Java         JavaScript/TypeScript                         JSON         Kotlin         Lua         Nix         PHP                           Python         Ruby         Rust         Scala         Swift         Yaml
-    "selector": "source.shell, source.c, source.c++, source.objc, source.objc++, source.cuda-c++, source.cs, source.css, source.elixir, source.go, source.gomod, source.haskell, source.hcl, text.html.basic, source.java, source.js, source.jsx, source.ts, source.tsx, source.json, source.Kotlin, source.lua, source.nix, embedding.php, text.html.php, source.python, source.ruby, source.rust, source.scala, source.swift, source.yml, source.yaml"
+    "selector": "source.shell, source.c, source.c++, source.objc, source.objc++, source.cuda-c++, source.cs, source.css, source.elixir, source.go, source.gomod, source.haskell, source.hcl, text.html.basic, source.java, source.js, source.jsx, source.ts, source.tsx, source.json, source.Kotlin, source.lua, source.nix, embedding.php, text.html.php, source.python, source.ruby, source.rust, source.scala, source.swift, source.yml, source.yaml",
+    "settings": {
+        "astGrep.configurationPath": "sgconfig.yml"
+    }
 }

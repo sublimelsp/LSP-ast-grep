@@ -34,20 +34,21 @@ class LspAstGrep(NpmClientHandler):
     ) -> str | None:
         if workspace_folders:
             folder = workspace_folders[0]
-            config = find_config(folder.path)
+            config_name = configuration.settings.get('astGrep.configurationPath') or 'sgconfig.yml'
+            config = find_config(folder.path, config_name)
             if config:
                 return None
         return "scanning complete"  # a better error message like "lsp not started because sgconfig.yml was not found"
 
 
-def find_config(start_path: str, config_name: str = "sgconfig.yml") -> Path | None:
+def find_config(start_path: str, config_name: str) -> Path | None:
     """
     Traverses up the directory tree starting from start_path to find config_name.
     Returns the Path object if found, otherwise None.
     """
     current = Path(start_path).resolve()
     while True:
-        target = current / config_name
+        target = (current / config_name).resolve()
         if target.is_file():
             return target
         parent = current.parent

@@ -13,13 +13,14 @@ Install [LSP](https://packagecontrol.io/packages/LSP) via Package Control.
 1. Install [LSP-ast-grep](https://packagecontrol.io/packages/LSP-ast-grep) from Package Control.
 1. Restart Sublime.
 
-### How to Open ast-grep
+### Getting started
 
 * **Command Palette:** Select `LSP-ast-grep: Search by Code`.
 * **Keybinding:** Add this to your settings:
     ```json
     { "keys": ["ctrl+alt+f"], "command": "lsp_ast_grep_open" }
     ```
+* **Context Menu**: Right-click and select `Show Tree-sitter AST (ast-grep)` while the pane is open. This extracts node kind information for writing advanced rules.
 
 ### Configuration
 

@@ -1,0 +1,16 @@
+[
+    {
+        "caption": "Open \"rule\" Cheat Sheet",
+        "command": "lsp_ast_grep_open_guide",
+        "args": {
+            "file": "Packages/LSP-ast-grep/docs/Rule Cheat Sheet.md"
+        }
+    },
+    {
+        "caption": "Open Config Cheat Sheet",
+        "command": "lsp_ast_grep_open_guide",
+        "args": {
+            "file": "Packages/LSP-ast-grep/docs/Rule Cheat Sheet.md"
+        }
+    }
+]

@@ -1,0 +1,9 @@
+[
+    {
+        "caption": "Open Pattern Cheat Sheet",
+        "command": "lsp_ast_grep_open_guide",
+        "args": {
+            "file": "Packages/LSP-ast-grep/docs/Pattern Cheat Sheet.md"
+        }
+    }
+]

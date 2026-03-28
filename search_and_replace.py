@@ -128,6 +128,7 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
         if not pattern_view:
             pattern_view = self.window.new_file()
             pattern_view.settings().set('ast-grep.view', 'pattern-view')
+            pattern_view.settings().set("context_menu", 'Context Pattern.sublime-menu')
             pattern_view.set_syntax_file(pattern_syntax)
             pattern_view.settings().set('is_widget', True)  # when pasting this prevents auto-setting the sytnax
             pattern_view.set_name('Pattern')
@@ -139,6 +140,7 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
         if not yaml_rule_view:
             yaml_rule_view = self.window.new_file()
             yaml_rule_view.settings().set('ast-grep.view', 'yaml-rule-view')
+            yaml_rule_view.settings().set("context_menu", 'Context Yaml Rule.sublime-menu')
             yaml_rule_view.set_syntax_file(yaml_syntax)
             yaml_rule_view.set_name('Advanced')
             yaml_rule_view.run_command("append", {"characters": get_yaml_content(active_view)})

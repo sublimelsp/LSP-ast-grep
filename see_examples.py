@@ -1,8 +1,8 @@
 from __future__ import annotations
-from typing import override
 
-import sublime_plugin
+from typing_extensions import override
 import sublime
+import sublime_plugin
 
 
 class LspAstGrepOpenGuideCommand(sublime_plugin.WindowCommand):

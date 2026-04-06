@@ -13,6 +13,7 @@ commands = [
 ]
 
 [tool.pyright]
+pythonVersion = "3.8"
 reportUnknownMemberType = "none"
 
 [tool.ruff]

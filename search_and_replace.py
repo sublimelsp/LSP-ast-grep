@@ -22,7 +22,8 @@ class HiglightMatcher(AstGrepCli):
         if not window:
             return
         mode: Literal["pattern", "advanced"] = 'pattern'
-        view_id = view.settings().get("ast-grep.view")
+        active_view_in_group_one = window.active_view_in_group(1)
+        view_id = active_view_in_group_one.settings().get("ast-grep.view")
         mode = 'pattern'
         if view_id == "yaml-rule-view":
             mode = "advanced"

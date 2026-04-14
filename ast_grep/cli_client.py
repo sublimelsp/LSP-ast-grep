@@ -119,7 +119,6 @@ class AstGrepCli:
         def run_replace() -> None:
             ast_cli = LspAstGrep.binary_path()
             cmd = [ast_cli, 'run', '--threads', '1', '--pattern', search_query, f'--strictness={strictness}', '--rewrite', replace_query]
-            print('cmd', cmd)
             if update_all:
                 cmd.append('--update-all')
             else:

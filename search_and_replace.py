@@ -97,10 +97,6 @@ class HiglightMatcher(AstGrepCli):
                 )
             active_view.settings().set('ast-grep-var-key', erase_keys)
 
-        if mode == 'pattern':
-            self.pattern_search(search_query, paths=[file_name], on_done=on_done)
-            return
-
         def on_error(message: str) -> None:
             for key in cast(list[str], active_view.settings().get('ast-grep-var-key', [])):
                 active_view.erase_regions(key)
@@ -108,6 +104,10 @@ class HiglightMatcher(AstGrepCli):
             clean_lines = [line.strip(" ╰▻") for line in caused_part.splitlines()]
             result = "<br>".join(clean_lines)
             query_view.show_popup(f"<pre class='error'>{result}</pre>")
+
+        if mode == 'pattern':
+            self.pattern_search(search_query, paths=[file_name], on_done=on_done, on_error=on_error)
+            return
 
         self.rewrite_inline_rule(search_query, paths=[file_name], on_done=on_done, on_error=on_error)
 

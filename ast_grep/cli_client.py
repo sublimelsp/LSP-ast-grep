@@ -65,8 +65,6 @@ class AstGrepCli:
             return
         cwd = folders[0]
         search_paths = paths or folders
-        if not search_query.strip():
-            return
 
         def run_search() -> None:
             ast_cli = LspAstGrep.binary_path()

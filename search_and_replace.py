@@ -142,8 +142,8 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
             pattern_view.settings().set('is_widget', True)  # when pasting this prevents auto-setting the sytnax
             pattern_view.set_name('Pattern')
             pattern_view.set_scratch(True)
-        folders = self.window.settings().get('lsp_ast_grep_pattern_in_folder', [])
-        if isinstance(folders, list):
+        folders = self.window.settings().get('lsp_ast_grep_pattern_in_folder') or []
+        if isinstance(folders, list) and folders:
             relative_folder_names= [Path(f).relative_to(cwd) for f in folders]
             html = "<div style='color: color(var(--foreground) alpha(0.50))'>Where: " + " ".join([
                 f'<span style="background-color: color(var(--foreground) alpha(0.20)); color: var(--foreground); padding: 4px; border-radius: 10px; margin-right: 5px;">{f}</span>'
@@ -477,7 +477,7 @@ class AstGrepSearchOpenListener(sublime_plugin.EventListener, HiglightMatcher):
     def on_load(self, view: sublime.View) -> None:
         self.highlight_matches(view)
         window = view.window()
-        if window and RightPane.is_active():
+        if window and RightPane.is_active() and window.get_view_index(view)[0] != 0:
             window.set_view_index(view, 0, -1)
 
     def on_clone(self, view: sublime.View) -> None:

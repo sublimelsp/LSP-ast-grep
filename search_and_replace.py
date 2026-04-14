@@ -145,7 +145,7 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
         folders = self.window.settings().get('lsp_ast_grep_pattern_in_folder') or []
         if isinstance(folders, list) and folders:
             relative_folder_names= [Path(f).relative_to(cwd) for f in folders]
-            html = "<div style='color: color(var(--foreground) alpha(0.50))'>Where: " + " ".join([
+            html = "<div style='color: color(var(--foreground) alpha(0.50))'>Pattern in Folder: " + " ".join([
                 f'<span style="background-color: color(var(--foreground) alpha(0.20)); color: var(--foreground); padding: 4px; border-radius: 10px; margin-right: 5px;">{f}</span>'
                 for f in relative_folder_names
             ]) + '</div>'

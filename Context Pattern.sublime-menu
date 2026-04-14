@@ -5,5 +5,35 @@
         "args": {
             "file": "Packages/LSP-ast-grep/docs/Pattern Cheat Sheet.md"
         }
-    }
+    },
+    {
+        "caption": "Strictness",
+        "children": [
+            {
+                "caption": "cst: Match exact all node",
+                "command": "lsp_ast_grep_set_pattern_strictness_cst",
+                "checkbox": true
+            },
+            {
+                "caption": "smart: Match all node except source trivial nodes",
+                "command": "lsp_ast_grep_set_pattern_strictness_smart",
+                "checkbox": true
+            },
+            {
+                "caption": "ast: Match only ast nodes",
+                "command": "lsp_ast_grep_set_pattern_strictness_ast",
+                "checkbox": true
+            },
+            {
+                "caption": "relaxed: Match ast node except comments",
+                "command": "lsp_ast_grep_set_pattern_strictness_relaxed",
+                "checkbox": true
+            },
+            {
+                "caption": "signature: Match ast node except comments, without text",
+                "command": "lsp_ast_grep_set_pattern_strictness_signature",
+                "checkbox": true
+            }
+        ]
+    },
 ]

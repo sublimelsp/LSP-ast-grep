@@ -60,7 +60,9 @@ class AstGrepCli:
         if AstGrepCli.process:
             AstGrepCli.process.kill()
             AstGrepCli.process = None
-        folders = sublime.active_window().folders()
+        window = sublime.active_window()
+        folders = window.folders()
+        strictness = window.settings().get('lsp_ast_grep_strictness') or 'smart'
         if not folders:
             return
         cwd = folders[0]
@@ -68,7 +70,7 @@ class AstGrepCli:
 
         def run_search() -> None:
             ast_cli = LspAstGrep.binary_path()
-            cmd = [ast_cli, 'run', '--pattern', search_query, '--json=stream', '--threads', '1', *search_paths]
+            cmd = [ast_cli, 'run', '--pattern', search_query, f'--strictness={strictness}', '--json=stream', '--threads', '1', *search_paths]
             process = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             AstGrepCli.process = process
             matches: dict[str, list[Match]] = {}
@@ -104,7 +106,9 @@ class AstGrepCli:
         if AstGrepCli.process:
             AstGrepCli.process.kill()
             AstGrepCli.process = None
-        folders = sublime.active_window().folders()
+        window = sublime.active_window()
+        folders = window.folders()
+        strictness = window.settings().get('lsp_ast_grep_strictness') or 'smart'
         if not folders:
             return
         cwd = folders[0]
@@ -112,7 +116,8 @@ class AstGrepCli:
 
         def run_replace() -> None:
             ast_cli = LspAstGrep.binary_path()
-            cmd = [ast_cli, 'run', '--threads', '1', '--pattern', search_query, '--rewrite', replace_query]
+            cmd = [ast_cli, 'run', '--threads', '1', '--pattern', search_query, f'--strictness={strictness}', '--rewrite', replace_query]
+            print('cmd', cmd)
             if update_all:
                 cmd.append('--update-all')
             else:

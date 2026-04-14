@@ -225,6 +225,8 @@ class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, Ast
             result_view = self.window.create_output_panel(panel_name)
             result_view.set_syntax_file('Packages/LSP/Syntaxes/References.sublime-syntax')
             result_view.set_name('Find Results')
+            result_view.settings().set('gutter', False)
+            result_view.settings().set('margin', 10)
             result_view.set_scratch(True)
         PANEL_FILE_REGEX = r"^(\S.*):$"
         PANEL_LINE_REGEX = r"^\s+(\d+):(\d+)"
@@ -370,6 +372,8 @@ class lsp_ast_grep_pattern_command(sublime_plugin.WindowCommand, AstGrepCli):
             result_view = self.window.create_output_panel(panel_name)
             result_view.set_syntax_file('Packages/LSP/Syntaxes/References.sublime-syntax')
             result_view.set_name('Find Results')
+            result_view.settings().set('gutter', False)
+            result_view.settings().set('margin', 10)
             result_view.set_scratch(True)
         PANEL_FILE_REGEX = r"^(\S.*):$"
         PANEL_LINE_REGEX = r"^\s+(\d+):(\d+)"
@@ -573,6 +577,8 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
         else:
             result_view = self.window.create_output_panel(panel_name)
             result_view.set_syntax_file('Packages/LSP/Syntaxes/References.sublime-syntax')
+            result_view.settings().set('gutter', False)
+            result_view.settings().set('margin', 10)
             result_view.set_name('Find Results')
             result_view.set_scratch(True)
         PANEL_FILE_REGEX = r"^(\S.*):$"

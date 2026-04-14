@@ -1,5 +1,9 @@
 [
     {
+        "caption": "Clear \"Pattern in Folder\" Filters",
+        "command": "lsp_ast_grep_pattern_clear_folders",
+    },
+    {
         "caption": "Strictness",
         "children": [
             {

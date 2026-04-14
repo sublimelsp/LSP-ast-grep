@@ -1,0 +1,4 @@
+[
+    { "caption": "-", "id": "folder_commands" },
+    { "caption": "Pattern in Folder (ast-grep)", "command": "lsp_ast_grep_pattern_in_folder", "args": {"dirs": []} }
+]

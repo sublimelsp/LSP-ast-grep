@@ -63,10 +63,11 @@ class AstGrepCli:
         window = sublime.active_window()
         folders = window.folders()
         strictness = window.settings().get('lsp_ast_grep_strictness') or 'smart'
+        pattern_in_folder = window.settings().get('lsp_ast_grep_pattern_in_folder') or []
         if not folders:
             return
         cwd = folders[0]
-        search_paths = paths or folders
+        search_paths = pattern_in_folder or paths or folders
 
         def run_search() -> None:
             ast_cli = LspAstGrep.binary_path()
@@ -109,10 +110,11 @@ class AstGrepCli:
         window = sublime.active_window()
         folders = window.folders()
         strictness = window.settings().get('lsp_ast_grep_strictness') or 'smart'
+        pattern_in_folder = window.settings().get('lsp_ast_grep_pattern_in_folder') or []
         if not folders:
             return
         cwd = folders[0]
-        search_paths = paths or folders
+        search_paths = pattern_in_folder or paths or folders
 
         def run_replace() -> None:
             ast_cli = LspAstGrep.binary_path()

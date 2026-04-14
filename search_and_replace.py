@@ -37,6 +37,8 @@ class HiglightMatcher(AstGrepCli):
             return
 
         def on_done(matches: dict[str, list[Match]]) -> None:
+            for key in cast(list[str], active_view.settings().get('ast-grep-var-key', [])):
+                active_view.erase_regions(key)
             file_matches = matches.get(file_name) or []
             match_regions: list[sublime.Region] = []
             single_regions: dict[str, list[sublime.Region]] = {}
@@ -95,14 +97,13 @@ class HiglightMatcher(AstGrepCli):
                 )
             active_view.settings().set('ast-grep-var-key', erase_keys)
 
-        for key in cast(list[str], active_view.settings().get('ast-grep-var-key', [])):
-                active_view.erase_regions(key)
-
         if mode == 'pattern':
             self.pattern_search(search_query, paths=[file_name], on_done=on_done)
             return
 
         def on_error(message: str) -> None:
+            for key in cast(list[str], active_view.settings().get('ast-grep-var-key', [])):
+                active_view.erase_regions(key)
             caused_part = message.split("Caused by")[1].strip() if "Caused by" in message else message
             clean_lines = [line.strip(" ╰▻") for line in caused_part.splitlines()]
             result = "<br>".join(clean_lines)
@@ -450,6 +451,7 @@ class AstGrepSearchOpenListener(sublime_plugin.EventListener, HiglightMatcher):
             AstGrepCli.process.kill()
 
     def on_activated(self, view: sublime.View) -> None:
+        print('ee')
         self.highlight_matches(view)
 
     def on_load(self, view: sublime.View) -> None:

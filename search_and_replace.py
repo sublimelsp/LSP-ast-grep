@@ -7,6 +7,7 @@ from .ast_grep.languages import get_language
 from .ast_grep.right_pane import RightPane
 from .ast_grep.types import Match
 from LSP.plugin.core.types import debounced
+from pathlib import Path
 from typing import cast
 from typing import Literal
 from typing_extensions import override
@@ -125,6 +126,12 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
             _group, index = self.window.get_view_index(view)
             self.window.set_view_index(view, 0, index)
 
+        folders = self.window.folders()
+        if not folders:
+            return
+        cwd = folders[0]
+
+
         pattern_syntax = 'Packages/LSP-ast-grep/AstGrepPattern.sublime-syntax'
         pattern_view = RightPane.pattern_view(self.window)
         if not pattern_view:
@@ -135,6 +142,20 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
             pattern_view.settings().set('is_widget', True)  # when pasting this prevents auto-setting the sytnax
             pattern_view.set_name('Pattern')
             pattern_view.set_scratch(True)
+        folders = self.window.settings().get('lsp_ast_grep_pattern_in_folder', [])
+        if isinstance(folders, list):
+            relative_folder_names= [Path(f).relative_to(cwd) for f in folders]
+            html = "<div style='color: color(var(--foreground) alpha(0.50))'>Where: " + " ".join([
+                f'<span style="background-color: color(var(--foreground) alpha(0.20)); color: var(--foreground); padding: 4px; border-radius: 10px; margin-right: 5px;">{f}</span>'
+                for f in relative_folder_names
+            ]) + '</div>'
+            pattern_view.erase_phantoms('lsp_ast_grep_where_phantom')
+            pattern_view.add_phantom(
+                "lsp_ast_grep_where_phantom",
+                sublime.Region(0, 0),
+                html,
+                sublime.LAYOUT_BLOCK
+            )
         self.window.set_view_index(pattern_view, 1, 0)
 
         yaml_syntax = 'Packages/LSP-ast-grep/AstGrepYaml.sublime-syntax'

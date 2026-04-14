@@ -100,6 +100,8 @@ class HiglightMatcher(AstGrepCli):
         def on_error(message: str) -> None:
             for key in cast(list[str], active_view.settings().get('ast-grep-var-key', [])):
                 active_view.erase_regions(key)
+            if not message:
+                return
             caused_part = message.split("Caused by")[1].strip() if "Caused by" in message else message
             clean_lines = [line.strip(" ╰▻") for line in caused_part.splitlines()]
             result = "<br>".join(clean_lines)

@@ -13,8 +13,7 @@ import sublime_plugin
 class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
     @override
     def is_visible(self) -> bool:
-        window = self.view.window()
-        return bool(window and window.id() == RightPane.active_window_id)
+        return RightPane.is_active()
 
     @override
     def run(self, edit: sublime.Edit) -> None:
@@ -74,7 +73,7 @@ class lsp_ast_grep_show_ast_command(sublime_plugin.TextCommand, AstGrepCli):
 
 class AstGrepHighlightTreeNodeListener(sublime_plugin.EventListener):
     def on_hover(self, view: sublime.View, point: int, hover_zone: sublime.HoverZone):
-        if RightPane.active_window_id is None:
+        if not RightPane.is_active():
             return
         if view.settings().get("ast-grep.view") != "ast-grep-ast-output-view":
             return
@@ -83,7 +82,7 @@ class AstGrepHighlightTreeNodeListener(sublime_plugin.EventListener):
         self.highlight_node_at_point(view, point)
 
     def on_selection_modified(self, view: sublime.View) -> None:
-        if RightPane.active_window_id is None:
+        if not RightPane.is_active():
             return
         if view.settings().get("ast-grep.view") != "ast-grep-ast-output-view":
             return

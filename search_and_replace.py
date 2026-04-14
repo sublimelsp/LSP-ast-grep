@@ -115,7 +115,6 @@ class HiglightMatcher(AstGrepCli):
 class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
     @override
     def run(self) -> None:
-        RightPane.active_window_id = self.window.id()
         active_view = self.window.active_view()
         self.window.set_layout(
             {'cells': [[0, 0, 1, 2], [1, 0, 2, 1], [1, 1, 2, 2]], 'cols': [0.0, 0.6, 1.0], 'rows': [0.0, 0.5, 1.0]}
@@ -438,13 +437,12 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
             window.set_layout({'cells': [[0, 0, 1, 1]], 'cols': [0.0, 1.0], 'rows': [0.0, 1.0]})
 
         sublime.set_timeout(layout)
-        RightPane.active_window_id = None
 
 
 class AstGrepSearchOpenListener(sublime_plugin.EventListener, HiglightMatcher):
     @classmethod
     def is_applicable(cls, _settings: sublime.Settings) -> bool:
-        return bool(RightPane.active_window_id)
+        return RightPane.is_active()
 
     def on_exit(self) -> None:
         if AstGrepCli.process is not None:
@@ -457,7 +455,7 @@ class AstGrepSearchOpenListener(sublime_plugin.EventListener, HiglightMatcher):
     def on_load(self, view: sublime.View) -> None:
         self.highlight_matches(view)
         window = view.window()
-        if window and window.active_group() != 0 and window.id() == RightPane.active_window_id:
+        if window and RightPane.is_active():
             window.set_view_index(view, 0, -1)
 
     def on_clone(self, view: sublime.View) -> None:

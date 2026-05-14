@@ -9,6 +9,7 @@ from .ast_grep.types import Match
 from LSP.plugin.core.types import debounced
 from pathlib import Path
 from typing import cast
+from typing import List
 from typing import Literal
 from typing_extensions import override
 import re
@@ -39,7 +40,7 @@ class HiglightMatcher(AstGrepCli):
             return
 
         def on_done(matches: dict[str, list[Match]]) -> None:
-            for key in cast(list[str], active_view.settings().get('ast-grep-var-key', [])):
+            for key in cast(List[str], active_view.settings().get('ast-grep-var-key', [])):
                 active_view.erase_regions(key)
             file_matches = matches.get(file_name) or []
             match_regions: list[sublime.Region] = []
@@ -100,7 +101,7 @@ class HiglightMatcher(AstGrepCli):
             active_view.settings().set('ast-grep-var-key', erase_keys)
 
         def on_error(message: str) -> None:
-            for key in cast(list[str], active_view.settings().get('ast-grep-var-key', [])):
+            for key in cast(List[str], active_view.settings().get('ast-grep-var-key', [])):
                 active_view.erase_regions(key)
             if not message:
                 return
@@ -131,8 +132,6 @@ class lsp_ast_grep_open_command(sublime_plugin.WindowCommand):
         if not folders:
             return
         cwd = folders[0]
-
-
         pattern_syntax = 'Packages/LSP-ast-grep/AstGrepPattern.sublime-syntax'
         pattern_view = RightPane.pattern_view(self.window)
         if not pattern_view:
@@ -469,7 +468,7 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
 
         # clear highlight regions on pane close
         for v in window.views():
-            for key in cast(list[str], v.settings().get('ast-grep-var-key', [])):
+            for key in cast(List[str], v.settings().get('ast-grep-var-key', [])):
                 v.erase_regions(key)
 
         def layout():
@@ -479,27 +478,31 @@ class AstGrepCloseAndQueryContextListener(sublime_plugin.ViewEventListener, AstG
 
 
 class AstGrepSearchOpenListener(sublime_plugin.EventListener, HiglightMatcher):
-    @classmethod
-    def is_applicable(cls, _settings: sublime.Settings) -> bool:
-        return RightPane.is_active()
-
     def on_exit(self) -> None:
         if AstGrepCli.process is not None:
             AstGrepCli.process.kill()
 
     def on_activated(self, view: sublime.View) -> None:
+        if not RightPane.is_active():
+            return
         self.highlight_matches(view)
 
     def on_load(self, view: sublime.View) -> None:
+        if not RightPane.is_active():
+            return
         self.highlight_matches(view)
         window = view.window()
         if window and RightPane.is_active() and window.get_view_index(view)[0] != 0:
             window.set_view_index(view, 0, -1)
 
     def on_clone(self, view: sublime.View) -> None:
+        if not RightPane.is_active():
+            return
         self.highlight_matches(view)
 
     def on_post_save(self, view: sublime.View) -> None:
+        if not RightPane.is_active():
+            return
         self.highlight_matches(view)
 
 

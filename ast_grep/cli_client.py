@@ -167,7 +167,7 @@ class AstGrepCli:
 
         def run_replace() -> None:
             ast_cli = LspAstGrep.binary_path()
-            cmd = [ast_cli, 'scan', '--threads', '1', '--inline-rules', 'id: inline-rule\n' + inline_rules]
+            cmd = [ast_cli, 'scan', '--threads', '1', '--inline-rules', inline_rules]
             if update_all:
                 cmd.append('--update-all')
             else:

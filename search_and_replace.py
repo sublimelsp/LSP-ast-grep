@@ -537,6 +537,7 @@ def get_yaml_content(view: sublime.View | None):
     indentation = " " * tab_size
     content = f"""# YAML Rule is more powerful! - https://ast-grep.github.io/guide/rule-config.html#rule
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/{json_schema}
+id: rule-id
 language: {language}
 rule:
 {indentation}pattern: TYPE_HERE
@@ -619,7 +620,7 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
                 old_reference += new_text
                 result_view.run_command("append", {"characters": new_text, 'scroll_to_end': False})
                 last_file_name = match['file']
-            old_reference += (
+            old_line = (
                 " {:>6}:{:<4} {}".format(
                     match['range']['start']['line'] + 1,
                     match['range']['start']['column'] + 1,
@@ -627,16 +628,19 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
                 )
                 + new_lines_at_end
             )
-            line = (
-                " {:>6}:{:<4} {}".format(
-                    match['range']['start']['line'] + 1,
-                    match['range']['start']['column'] + 1,
-                    re.sub(r'\s+', ' ', match.get('replacement').replace('\n', ''))
+            old_reference += old_line
+            if replacement := match.get('replacement'):
+                line = (
+                    " {:>6}:{:<4} {}".format(
+                        match['range']['start']['line'] + 1,
+                        match['range']['start']['column'] + 1,
+                        re.sub(r'\s+', ' ', replacement.replace('\n', ''))
+                    )
+                    + new_lines_at_end
                 )
-                + new_lines_at_end
-            )
-
-            result_view.run_command("append", {"characters": line, 'scroll_to_end': False})
+                result_view.run_command("append", {"characters": line, 'scroll_to_end': False})
+            else:
+                result_view.run_command("append", {"characters": old_line, 'scroll_to_end': False})
             result_view.set_read_only(True)
             result_view.set_reference_document(old_reference)
             result_view.clear_undo_stack()

@@ -557,18 +557,15 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
         self.phantom_set: sublime.PhantomSet
 
     @override
-    def run(self) -> None:
-        yaml_rule_view = RightPane.yaml_rule_view(self.window)
-        if not yaml_rule_view:
-            return
-
-        # the yaml rule view has some comments at the top
-        # we need to strip comments out, because the inline_rules_query will be send to the cli command
-        # and the cli command will throw an error
-        begin_of_yaml_rule = yaml_rule_view.find("$language:", 0)
-        inline_rules_query = yaml_rule_view.substr(
-            sublime.Region(begin_of_yaml_rule.begin() or 0, yaml_rule_view.size())
-        )
+    def run(self, inline_rules: str | None =None) -> None:
+        inline_rules_query = inline_rules
+        if inline_rules is None:
+            yaml_rule_view = RightPane.yaml_rule_view(self.window)
+            if not yaml_rule_view:
+                return
+            inline_rules_query = yaml_rule_view.substr(
+                sublime.Region(0, yaml_rule_view.size())
+            )
         if not inline_rules_query.strip():
             return
         folders = self.window.folders()

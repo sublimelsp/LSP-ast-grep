@@ -261,7 +261,7 @@ class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, Ast
                 result_view.run_command("append", {"characters": new_text, 'scroll_to_end': False})
                 last_file_name = match['file']
             old_reference += (
-                " {:>4}:{:<4} {}".format(
+                " {:>6}:{:<4} {}".format(
                     match['range']['start']['line'] + 1,
                     match['range']['start']['column'] + 1,
                     re.sub(r'\s+', ' ', match['text'].replace('\n', '')),
@@ -269,7 +269,7 @@ class lsp_ast_grep_pattern_and_rewrite_command(sublime_plugin.WindowCommand, Ast
                 + "\n\n"
             )
             line = (
-                " {:>4}:{:<4} {}".format(
+                " {:>6}:{:<4} {}".format(
                     match['range']['start']['line'] + 1,
                     match['range']['start']['column'] + 1,
                     re.sub(r'\s+', ' ', match['replacement'].replace('\n', '')),
@@ -397,7 +397,7 @@ class lsp_ast_grep_pattern_command(sublime_plugin.WindowCommand, AstGrepCli):
                 maybe_new_line = '\n' if is_empty_view else ''
                 result_view.run_command("append", {"characters": maybe_new_line + match['file'] + ':\n'})
                 last_file_name = match['file']
-            line = " {:>4}:{:<4} {}".format(
+            line = " {:>6}:{:<4} {}".format(
                 match['range']['start']['line'] + 1,
                 match['range']['start']['column'] + 1,
                 match['lines'].split('\n')[0].strip(),
@@ -620,7 +620,7 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
                 result_view.run_command("append", {"characters": new_text, 'scroll_to_end': False})
                 last_file_name = match['file']
             old_reference += (
-                " {:>4}:{:<4} {}".format(
+                " {:>6}:{:<4} {}".format(
                     match['range']['start']['line'] + 1,
                     match['range']['start']['column'] + 1,
                     re.sub(r'\s+', ' ', match['text'].replace('\n', '')),
@@ -628,8 +628,10 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
                 + new_lines_at_end
             )
             line = (
-                " {:>4}:{:<4} {}".format(
-                    match['range']['start']['line'] + 1, match['range']['start']['column'] + 1, match.get('replacement') or match['text']
+                " {:>6}:{:<4} {}".format(
+                    match['range']['start']['line'] + 1,
+                    match['range']['start']['column'] + 1,
+                    re.sub(r'\s+', ' ', match.get('replacement').replace('\n', ''))
                 )
                 + new_lines_at_end
             )

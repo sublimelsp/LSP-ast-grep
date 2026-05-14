@@ -108,7 +108,7 @@ class HiglightMatcher(AstGrepCli):
             caused_part = message.split("Caused by")[1].strip() if "Caused by" in message else message
             clean_lines = [line.strip(" ╰▻") for line in caused_part.splitlines()]
             result = "<br>".join(clean_lines)
-            query_view.show_popup(f"<pre class='error'>{result}</pre>")
+            query_view.show_popup(f"<pre class='error'>{result}</pre>", sublime.PopupFlags.COOPERATE_WITH_AUTO_COMPLETE)
 
         if mode == 'pattern':
             self.pattern_search(search_query, paths=[file_name], on_done=on_done, on_error=on_error)

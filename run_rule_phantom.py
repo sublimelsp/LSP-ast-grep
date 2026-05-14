@@ -7,7 +7,6 @@ import sublime_plugin
 class lsp_ast_grep_run_rule_phantom_command(sublime_plugin.TextCommand):
     def run(self, edit):
         inline_rules = self.view.substr(sublime.Region(0, self.view.size()))
-        print('inline_rules', inline_rules)
         self.view.window().run_command('lsp_ast_grep_run_rule', {
             'inline_rules': inline_rules
         })

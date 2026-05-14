@@ -648,6 +648,10 @@ class lsp_ast_grep_run_rule_command(sublime_plugin.WindowCommand, AstGrepCli):
         def on_done(matches: dict[str, list[Match]]) -> None:
             nonlocal old_reference
 
+            if not matches:
+                result_view.run_command('lsp_ast_grep_insert', {"point": 0, "characters": "Found 0 matches across 0 files"})
+                return
+
             def toggle_diff():
                 selection = result_view.sel()
                 selection.add(sublime.Region(0, result_view.size()))
